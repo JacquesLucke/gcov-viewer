@@ -12,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() { }
 
 const decorationType = vscode.window.createTextEditorDecorationType({
-	backgroundColor: 'rgba(50, 240, 50, 0.15)',
+	backgroundColor: new vscode.ThemeColor("diffEditor.insertedTextBackground"),
 	isWholeLine: true,
 });
 
@@ -148,7 +148,7 @@ async function show_decorations() {
 			const count = line_data.count;
 			total_count += count;
 			const demangled_name = demangled_names.get(line_data.function_name)!;
-			tooltip += `**${count} ${(count === 1) ? 'Call' : 'Calls'}:**  \`${demangled_name}\`\n\n`;
+			tooltip += `${count} ${(count === 1) ? 'Call' : 'Calls'} in  \`${demangled_name}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
@@ -156,6 +156,8 @@ async function show_decorations() {
 			renderOptions: {
 				after: {
 					contentText: '  Count: ' + total_count.toString(),
+					color: new vscode.ThemeColor("editorCodeLens.foreground"),
+					fontStyle: 'italic',
 				},
 			},
 		};
