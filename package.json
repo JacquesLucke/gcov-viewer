@@ -15,10 +15,6 @@
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
-			{
-				"command": "gcov-viewer.helloWorld",
-				"title": "Hello World"
-			}
 		]
 	},
 	"scripts": {
