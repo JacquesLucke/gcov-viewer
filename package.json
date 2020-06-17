@@ -10,7 +10,9 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:gcov-viewer.show"
+		"onCommand:gcov-viewer.show",
+		"onCommand:gcov-viewer.load_coverage_data",
+		"onCommand:gcov-viewer.delete_coverage_data"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -18,6 +20,16 @@
 			{
 				"command": "gcov-viewer.show",
 				"title": "Show",
+				"category": "Gcov Viewer"
+			},
+			{
+				"command": "gcov-viewer.load_coverage_data",
+				"title": "Load Coverage Data",
+				"category": "Gcov Viewer"
+			},
+			{
+				"command": "gcov-viewer.delete_coverage_data",
+				"title": "Delete Coverage Data",
 				"category": "Gcov Viewer"
 			}
 		]
