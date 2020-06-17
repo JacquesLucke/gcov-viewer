@@ -59,14 +59,11 @@ async function run_gcov(path: string) {
 	});
 }
 
-async function* get_gcda_paths() {
+async function get_gcda_paths() {
 	const base_path = '/home/jacques/blender-git/build_linux/';
-	const paths = await recursive_readdir(base_path);
-	for (const path of paths) {
-		if (path.endsWith('.gcda')) {
-			yield path;
-		}
-	}
+	const all_paths = await recursive_readdir(base_path);
+	const gcda_paths = all_paths.filter(value => value.endsWith(".gcda"));
+	return gcda_paths;
 }
 
 let lines_by_file: Map<string, [LineData]> = new Map();
@@ -76,7 +73,7 @@ async function load_coverage_data() {
 	lines_by_file = new Map();
 	demangled_names = new Map();
 
-	for await (const path of get_gcda_paths()) {
+	for (const path of await get_gcda_paths()) {
 		console.log(path);
 		const gcov_data = await run_gcov(path);
 		for (const file_data of gcov_data.files) {
@@ -96,12 +93,7 @@ async function load_coverage_data() {
 }
 
 async function delete_coverage_data() {
-	let paths = [];
-	// Get all paths before starting to delete.
-	for await (const path of get_gcda_paths()) {
-		paths.push(path);
-	}
-	for (const path of paths) {
+	for (const path of await get_gcda_paths()) {
 		fs.unlinkSync(path);
 	}
 }
