@@ -12,9 +12,8 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() { }
 
 const decorationType = vscode.window.createTextEditorDecorationType({
-	backgroundColor: 'rgba(50, 240, 50, 0.2)',
+	backgroundColor: 'rgba(50, 240, 50, 0.15)',
 	isWholeLine: true,
-	cursor: "crosshair"
 });
 
 interface LineData {
@@ -24,11 +23,8 @@ interface LineData {
 	unexecuted_block: boolean,
 };
 
-interface LinesByFile {
-	[key: string]: [LineData]
-};
-
-let lines_by_file: LinesByFile = {};
+let lines_by_file: Map<string, [LineData]> = new Map();
+let demangled_names: Map<string, string> = new Map();
 
 interface GcovJson {
 	files: [{
@@ -77,17 +73,18 @@ async function* get_gcda_paths() {
 }
 
 async function load_coverage_data() {
-	lines_by_file = {};
+	lines_by_file = new Map();
 
 	for await (const path of get_gcda_paths()) {
 		console.log(path);
 		const gcov_data = await run_gcov(path);
 		for (const file_data of gcov_data.files) {
-			if (file_data.file in lines_by_file) {
-				lines_by_file[file_data.file].push(...file_data.lines);
+			let line_data_array = lines_by_file.get(file_data.file);
+			if (line_data_array === undefined) {
+				lines_by_file.set(file_data.file, file_data.lines);
 			}
 			else {
-				lines_by_file[file_data.file] = file_data.lines;
+				line_data_array.push(...file_data.lines);
 			}
 		}
 	}
@@ -112,7 +109,8 @@ async function show_decorations() {
 	}
 
 	const path = editor.document.uri.fsPath;
-	if (!(path in lines_by_file)) {
+	const lines_data_of_file = lines_by_file.get(path);
+	if (lines_data_of_file === undefined) {
 		vscode.window.showInformationMessage("Cannot find coverage data for this file.");
 		return;
 	}
@@ -120,7 +118,7 @@ async function show_decorations() {
 
 	let hit_lines: Map<number, [LineData]> = new Map();
 
-	for (const line_data of lines_by_file[path]) {
+	for (const line_data of lines_data_of_file) {
 		if (line_data.count > 0) {
 			const key = line_data.line_number;
 			let data = hit_lines.get(key);
@@ -140,14 +138,17 @@ async function show_decorations() {
 			new vscode.Position(line_index, 0),
 			new vscode.Position(line_index, 100000));
 		let count = 0;
+		let tooltip = "";
 		for (const line_data of line_data_array) {
 			count += line_data.count;
+			tooltip += "**" + line_data.function_name + "**: " + line_data.count.toString() + "\n";
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
+			hoverMessage: tooltip,
 			renderOptions: {
 				after: {
-					contentText: count.toString(),
+					contentText: "  Count: " + count.toString(),
 				},
 			},
 		};
