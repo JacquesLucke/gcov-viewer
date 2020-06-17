@@ -23,9 +23,6 @@ interface LineData {
 	unexecuted_block: boolean,
 };
 
-let lines_by_file: Map<string, [LineData]> = new Map();
-let demangled_names: Map<string, string> = new Map();
-
 interface GcovJson {
 	files: [{
 		file: string,
@@ -72,8 +69,12 @@ async function* get_gcda_paths() {
 	}
 }
 
+let lines_by_file: Map<string, [LineData]> = new Map();
+let demangled_names: Map<string, string> = new Map();
+
 async function load_coverage_data() {
 	lines_by_file = new Map();
+	demangled_names = new Map();
 
 	for await (const path of get_gcda_paths()) {
 		console.log(path);
@@ -85,6 +86,10 @@ async function load_coverage_data() {
 			}
 			else {
 				line_data_array.push(...file_data.lines);
+			}
+
+			for (const function_data of file_data.functions) {
+				demangled_names.set(function_data.name, function_data.demangled_name);
 			}
 		}
 	}
@@ -137,18 +142,20 @@ async function show_decorations() {
 		const range = new vscode.Range(
 			new vscode.Position(line_index, 0),
 			new vscode.Position(line_index, 100000));
-		let count = 0;
+		let total_count = 0;
 		let tooltip = "";
 		for (const line_data of line_data_array) {
-			count += line_data.count;
-			tooltip += "**" + line_data.function_name + "**: " + line_data.count.toString() + "\n";
+			const count = line_data.count;
+			total_count += count;
+			const demangled_name = demangled_names.get(line_data.function_name)!;
+			tooltip += `**${count} ${(count === 1) ? "Call" : "Calls"}:**  \`${demangled_name}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
 			hoverMessage: tooltip,
 			renderOptions: {
 				after: {
-					contentText: "  Count: " + count.toString(),
+					contentText: "  Count: " + total_count.toString(),
 				},
 			},
 		};
