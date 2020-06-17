@@ -10,11 +10,16 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:gcov-viewer.helloWorld"
+		"onCommand:gcov-viewer.show"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
+			{
+				"command": "gcov-viewer.show",
+				"title": "Show",
+				"category": "Gcov Viewer"
+			}
 		]
 	},
 	"scripts": {
