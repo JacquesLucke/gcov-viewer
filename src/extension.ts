@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
-import * as recursive_readdir from "recursive-readdir";
+import * as recursive_readdir from 'recursive-readdir';
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand("gcov-viewer.show", show_decorations));
-	context.subscriptions.push(vscode.commands.registerCommand("gcov-viewer.load_coverage_data", load_coverage_data));
-	context.subscriptions.push(vscode.commands.registerCommand("gcov-viewer.delete_coverage_data", delete_coverage_data));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.load_coverage_data', load_coverage_data));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
 }
 
 export function deactivate() { }
@@ -44,7 +44,7 @@ interface GcovJson {
 };
 
 async function run_gcov(path: string) {
-	const command = `gcov --stdout --json-format "${path}"`;
+	const command = `gcov --stdout --json-format '${path}'`;
 	return new Promise<GcovJson>((resolve, reject) => {
 		child_process.exec(command, { maxBuffer: 1024 * 1024 * 128 }, (error, stdout, stderr) => {
 			if (error) {
@@ -60,10 +60,10 @@ async function run_gcov(path: string) {
 }
 
 async function* get_gcda_paths() {
-	const base_path = "/home/jacques/blender-git/build_linux/";
+	const base_path = '/home/jacques/blender-git/build_linux/';
 	const paths = await recursive_readdir(base_path);
 	for (const path of paths) {
-		if (path.endsWith(".gcda")) {
+		if (path.endsWith('.gcda')) {
 			yield path;
 		}
 	}
@@ -116,7 +116,7 @@ async function show_decorations() {
 	const path = editor.document.uri.fsPath;
 	const lines_data_of_file = lines_by_file.get(path);
 	if (lines_data_of_file === undefined) {
-		vscode.window.showInformationMessage("Cannot find coverage data for this file.");
+		vscode.window.showInformationMessage('Cannot find coverage data for this file.');
 		return;
 	}
 
@@ -143,19 +143,19 @@ async function show_decorations() {
 			new vscode.Position(line_index, 0),
 			new vscode.Position(line_index, 100000));
 		let total_count = 0;
-		let tooltip = "";
+		let tooltip = '';
 		for (const line_data of line_data_array) {
 			const count = line_data.count;
 			total_count += count;
 			const demangled_name = demangled_names.get(line_data.function_name)!;
-			tooltip += `**${count} ${(count === 1) ? "Call" : "Calls"}:**  \`${demangled_name}\`\n\n`;
+			tooltip += `**${count} ${(count === 1) ? 'Call' : 'Calls'}:**  \`${demangled_name}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
 			hoverMessage: tooltip,
 			renderOptions: {
 				after: {
-					contentText: "  Count: " + total_count.toString(),
+					contentText: '  Count: ' + total_count.toString(),
 				},
 			},
 		};
