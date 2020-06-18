@@ -212,7 +212,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	}
 
 
-	let hit_lines: Map<number, [LineData]> = new Map();
+	let hit_lines: Map<number, LineData[]> = new Map();
 
 	for (const line_data of lines_data_of_file) {
 		if (line_data.count > 0) {
@@ -233,12 +233,27 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		const range = new vscode.Range(
 			new vscode.Position(line_index, 0),
 			new vscode.Position(line_index, 100000));
+
 		let total_count = 0;
-		let tooltip = '';
+		let line_data_by_function: Map<string, LineData[]> = new Map();
 		for (const line_data of line_data_array) {
-			const count = line_data.count;
-			total_count += count;
-			const demangled_name = demangled_names.get(line_data.function_name)!;
+			total_count += line_data.count;
+			let data = line_data_by_function.get(line_data.function_name);
+			if (data === undefined) {
+				line_data_by_function.set(line_data.function_name, [line_data]);
+			}
+			else {
+				data.push(line_data);
+			}
+		}
+
+		let tooltip = '';
+		for (const [function_name, data_array] of line_data_by_function.entries()) {
+			let count = 0;
+			for (const line_data of data_array) {
+				count += line_data.count;
+			}
+			const demangled_name = demangled_names.get(function_name)!;
 			tooltip += `${count} ${(count === 1) ? 'Call' : 'Calls'} in  \`${demangled_name}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
