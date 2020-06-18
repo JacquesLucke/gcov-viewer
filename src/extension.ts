@@ -5,7 +5,7 @@ import * as recursive_readdir from 'recursive-readdir';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.load_coverage_data', load_coverage_data));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reload_coverage_data', reload_coverage_data));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
 }
 
@@ -80,15 +80,15 @@ let lines_by_file: Map<string, [LineData]> = new Map();
 let demangled_names: Map<string, string> = new Map();
 let loaded_gcda_files: string[] = [];
 
-async function load_coverage_data_from_paths(
+async function reload_coverage_data_from_paths(
 	paths: string[], total_paths: number,
 	progress: vscode.Progress<{ message?: string; increment?: number }>,
 	cancellation_token: vscode.CancellationToken) {
 
 	if (paths.length > 30) {
 		const middle = Math.floor(paths.length / 2);
-		await load_coverage_data_from_paths(paths.slice(0, middle), total_paths, progress, cancellation_token);
-		await load_coverage_data_from_paths(paths.slice(middle, paths.length), total_paths, progress, cancellation_token);
+		await reload_coverage_data_from_paths(paths.slice(0, middle), total_paths, progress, cancellation_token);
+		await reload_coverage_data_from_paths(paths.slice(middle, paths.length), total_paths, progress, cancellation_token);
 		return;
 	}
 
@@ -120,12 +120,12 @@ function shuffle_array(a: any[]) {
 	return a;
 }
 
-async function load_coverage_data() {
+async function reload_coverage_data() {
 	vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
 			cancellable: true,
-			title: 'Load Coverage Data',
+			title: 'Reload Coverage Data',
 		},
 		async (progress, cancellation_token) => {
 			lines_by_file = new Map();
@@ -140,7 +140,7 @@ async function load_coverage_data() {
 
 			let promises = [];
 			for (let i = 0; i < async_amount; i++) {
-				promises.push(load_coverage_data_from_paths(
+				promises.push(reload_coverage_data_from_paths(
 					gcda_paths.slice(i * chunk_size, (i + 1) * chunk_size), gcda_paths.length, progress, cancellation_token));
 			}
 			await Promise.all(promises);
