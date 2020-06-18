@@ -15,6 +15,7 @@ export function deactivate() { }
 const decorationType = vscode.window.createTextEditorDecorationType({
 	backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
 	isWholeLine: true,
+	overviewRulerColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
 });
 
 interface LineData {
