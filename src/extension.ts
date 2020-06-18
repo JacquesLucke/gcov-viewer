@@ -5,6 +5,7 @@ import * as recursive_readdir from 'recursive-readdir';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.hide', hide_decorations));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reload_coverage_data', reload_coverage_data));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
 }
@@ -76,9 +77,18 @@ async function get_gcda_paths() {
 	return gcda_paths;
 }
 
-let lines_by_file: Map<string, [LineData]> = new Map();
-let demangled_names: Map<string, string> = new Map();
-let loaded_gcda_files: string[] = [];
+function reset_loaded_coverage_data() {
+	lines_by_file = new Map();
+	demangled_names = new Map();
+	loaded_gcda_files = [];
+}
+
+let lines_by_file: Map<string, [LineData]>;
+let demangled_names: Map<string, string>;
+let loaded_gcda_files: string[];
+reset_loaded_coverage_data();
+
+
 
 async function reload_coverage_data_from_paths(
 	paths: string[], total_paths: number,
@@ -121,16 +131,14 @@ function shuffle_array(a: any[]) {
 }
 
 async function reload_coverage_data() {
-	vscode.window.withProgress(
+	await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
 			cancellable: true,
 			title: 'Reload Coverage Data',
 		},
 		async (progress, cancellation_token) => {
-			lines_by_file = new Map();
-			demangled_names = new Map();
-			loaded_gcda_files = [];
+			reset_loaded_coverage_data();
 			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
 			let gcda_paths = await get_gcda_paths();
@@ -151,16 +159,31 @@ async function reload_coverage_data() {
 }
 
 async function delete_coverage_data() {
+	reset_loaded_coverage_data();
+	await hide_decorations();
+
 	for (const path of await get_gcda_paths()) {
 		fs.unlinkSync(path);
 	}
+
 }
 
+async function hide_decorations() {
+	const editor = vscode.window.activeTextEditor;
+	if (editor === undefined) {
+		return;
+	}
+	editor.setDecorations(decorationType, []);
+}
 
 async function show_decorations() {
 	const editor = vscode.window.activeTextEditor;
 	if (editor === undefined) {
 		return;
+	}
+
+	if (lines_by_file.size === 0) {
+		await reload_coverage_data();
 	}
 
 	const path = editor.document.uri.fsPath;
