@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as recursive_readdir from 'recursive-readdir';
+import { versions } from 'process';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
@@ -12,7 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() { }
 
 const decorationType = vscode.window.createTextEditorDecorationType({
-	backgroundColor: new vscode.ThemeColor("diffEditor.insertedTextBackground"),
+	backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
 	isWholeLine: true,
 });
 
@@ -62,7 +63,7 @@ async function run_gcov(path: string) {
 async function get_gcda_paths() {
 	const base_path = '/home/jacques/blender-git/build_linux/';
 	const all_paths = await recursive_readdir(base_path);
-	const gcda_paths = all_paths.filter(value => value.endsWith(".gcda"));
+	const gcda_paths = all_paths.filter(value => value.endsWith('.gcda'));
 	return gcda_paths;
 }
 
@@ -70,26 +71,45 @@ let lines_by_file: Map<string, [LineData]> = new Map();
 let demangled_names: Map<string, string> = new Map();
 
 async function load_coverage_data() {
-	lines_by_file = new Map();
-	demangled_names = new Map();
+	vscode.window.withProgress(
+		{
+			location: vscode.ProgressLocation.Notification,
+			cancellable: true,
+			title: 'Load Covarage Data',
+		},
+		async (progress, cancellation_token) => {
+			lines_by_file = new Map();
+			demangled_names = new Map();
+			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
-	for (const path of await get_gcda_paths()) {
-		console.log(path);
-		const gcov_data = await run_gcov(path);
-		for (const file_data of gcov_data.files) {
-			let line_data_array = lines_by_file.get(file_data.file);
-			if (line_data_array === undefined) {
-				lines_by_file.set(file_data.file, file_data.lines);
-			}
-			else {
-				line_data_array.push(...file_data.lines);
-			}
+			const gcda_paths = await get_gcda_paths();
+			const increment = 100.0 / gcda_paths.length;
 
-			for (const function_data of file_data.functions) {
-				demangled_names.set(function_data.name, function_data.demangled_name);
+			for (const [index, path] of gcda_paths.entries()) {
+				if (cancellation_token.isCancellationRequested) {
+					return;
+				}
+
+				progress.report({ increment: increment, message: `[${index + 1}/${gcda_paths.length}] ${path}` });
+				const gcov_data = await run_gcov(path);
+				for (const file_data of gcov_data.files) {
+					let line_data_array = lines_by_file.get(file_data.file);
+					if (line_data_array === undefined) {
+						lines_by_file.set(file_data.file, file_data.lines);
+					}
+					else {
+						line_data_array.push(...file_data.lines);
+					}
+
+					for (const function_data of file_data.functions) {
+						demangled_names.set(function_data.name, function_data.demangled_name);
+					}
+				}
 			}
 		}
-	}
+	);
+
+
 }
 
 async function delete_coverage_data() {
@@ -148,7 +168,7 @@ async function show_decorations() {
 			renderOptions: {
 				after: {
 					contentText: '  Count: ' + total_count.toString(),
-					color: new vscode.ThemeColor("editorCodeLens.foreground"),
+					color: new vscode.ThemeColor('editorCodeLens.foreground'),
 					fontStyle: 'italic',
 				},
 			},
