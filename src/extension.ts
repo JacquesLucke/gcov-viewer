@@ -49,9 +49,9 @@ async function run_gcov(paths: string[]) {
 		command += ` "${path}"`;
 	}
 	return new Promise<GcovJson[]>((resolve, reject) => {
-		child_process.exec(command, { maxBuffer: 1024 * 1024 * 1024 }, (error, stdout, stderr) => {
-			if (error) {
-				console.error(`exec error: ${error}`);
+		child_process.exec(command, { maxBuffer: 256 * 1024 * 1024 }, (err, stdout, stderr) => {
+			if (err) {
+				console.error(`exec error: ${err}`);
 				reject();
 				return;
 			}
