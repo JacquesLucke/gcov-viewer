@@ -1,0 +1,1 @@
+`-fprofile-arcs -ftest-coverage`
