@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as recursive_readdir from 'recursive-readdir';
-import { versions } from 'process';
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
