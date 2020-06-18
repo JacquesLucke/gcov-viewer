@@ -239,17 +239,29 @@ async function show_decorations() {
 	}
 }
 
+function get_lines_data_for_file(absolute_path: string){
+	const lines_data_of_file = lines_by_file.get(absolute_path);
+	if (lines_data_of_file !== undefined) {
+		return lines_data_of_file;
+	}
+	for (const [stored_path, lines_data] of lines_by_file.entries()) {
+		if (absolute_path.endsWith(stored_path)) {
+			return lines_data;
+		} 
+	}
+	return undefined;
+}
+
 async function decorateEditor(editor: vscode.TextEditor) {
 	if (lines_by_file.size === 0) {
 		await reload_coverage_data();
 	}
 
 	const path = editor.document.uri.fsPath;
-	const lines_data_of_file = lines_by_file.get(path);
+	const lines_data_of_file = get_lines_data_for_file(path);
 	if (lines_data_of_file === undefined) {
 		return false;
 	}
-
 
 	let hit_lines: Map<number, LineData[]> = new Map();
 
