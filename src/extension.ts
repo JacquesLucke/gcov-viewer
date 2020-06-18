@@ -68,43 +68,61 @@ async function get_gcda_paths() {
 
 let lines_by_file: Map<string, [LineData]> = new Map();
 let demangled_names: Map<string, string> = new Map();
+let loaded_gcda_files: string[] = [];
+
+async function load_coverage_data_from_paths(
+	paths: string[], increment: number, total_paths: number,
+	progress: vscode.Progress<{ message?: string; increment?: number }>,
+	cancellation_token: vscode.CancellationToken) {
+
+	for (const path of paths) {
+		if (cancellation_token.isCancellationRequested) {
+			return;
+		}
+
+		progress.report({ increment: increment, message: `[${loaded_gcda_files.length}/${total_paths}] ${path}` });
+		const gcov_data = await run_gcov(path);
+		for (const file_data of gcov_data.files) {
+			let line_data_array = lines_by_file.get(file_data.file);
+			if (line_data_array === undefined) {
+				lines_by_file.set(file_data.file, file_data.lines);
+			}
+			else {
+				line_data_array.push(...file_data.lines);
+			}
+
+			for (const function_data of file_data.functions) {
+				demangled_names.set(function_data.name, function_data.demangled_name);
+			}
+		}
+		loaded_gcda_files.push(path);
+	}
+}
 
 async function load_coverage_data() {
 	vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
 			cancellable: true,
-			title: 'Load Covarage Data',
+			title: 'Load Coverage Data',
 		},
 		async (progress, cancellation_token) => {
 			lines_by_file = new Map();
 			demangled_names = new Map();
+			loaded_gcda_files = [];
 			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
 			const gcda_paths = await get_gcda_paths();
+			const async_amount = 20;
 			const increment = 100.0 / gcda_paths.length;
+			const chunk_size = gcda_paths.length / async_amount;
 
-			for (const [index, path] of gcda_paths.entries()) {
-				if (cancellation_token.isCancellationRequested) {
-					return;
-				}
-
-				progress.report({ increment: increment, message: `[${index + 1}/${gcda_paths.length}] ${path}` });
-				const gcov_data = await run_gcov(path);
-				for (const file_data of gcov_data.files) {
-					let line_data_array = lines_by_file.get(file_data.file);
-					if (line_data_array === undefined) {
-						lines_by_file.set(file_data.file, file_data.lines);
-					}
-					else {
-						line_data_array.push(...file_data.lines);
-					}
-
-					for (const function_data of file_data.functions) {
-						demangled_names.set(function_data.name, function_data.demangled_name);
-					}
-				}
+			let promises = [];
+			for (let i = 0; i < async_amount; i++) {
+				promises.push(load_coverage_data_from_paths(
+					gcda_paths.slice(i * chunk_size, (i + 1) * chunk_size), increment, gcda_paths.length, progress, cancellation_token));
 			}
+			await Promise.all(promises);
 		}
 	);
 
