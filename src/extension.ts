@@ -28,7 +28,7 @@ interface LineData {
 interface GcovJson {
 	files: [{
 		file: string,
-		functions: [{
+		functions: {
 			blocks: number,
 			blocks_executed: number,
 			demangled_name: string,
@@ -38,8 +38,8 @@ interface GcovJson {
 			end_line: number,
 			execution_count: number,
 			name: string,
-		}],
-		lines: [LineData],
+		}[],
+		lines: LineData[],
 	}],
 	current_working_directory: string,
 	data_file: string,
@@ -84,7 +84,7 @@ function reset_loaded_coverage_data() {
 	loaded_gcda_files = [];
 }
 
-let lines_by_file: Map<string, [LineData]>;
+let lines_by_file: Map<string, LineData[]>;
 let demangled_names: Map<string, string>;
 let loaded_gcda_files: string[];
 reset_loaded_coverage_data();
