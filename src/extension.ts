@@ -305,14 +305,14 @@ async function decorateEditor(editor: vscode.TextEditor) {
 				count += line_data.count;
 			}
 			const demangled_name = demangled_names.get(function_name)!;
-			tooltip += `${count}x in \`${demangled_name}\`\n\n`;
+			tooltip += `${count.toLocaleString()}x in \`${demangled_name}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
 			hoverMessage: tooltip,
 			renderOptions: {
 				after: {
-					contentText: `   ${total_count.toString()}x`,
+					contentText: `   ${total_count.toLocaleString()}x`,
 					color: new vscode.ThemeColor('editorCodeLens.foreground'),
 					fontStyle: 'italic',
 				},
