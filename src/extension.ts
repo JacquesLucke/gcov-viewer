@@ -208,7 +208,6 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	const path = editor.document.uri.fsPath;
 	const lines_data_of_file = lines_by_file.get(path);
 	if (lines_data_of_file === undefined) {
-		vscode.window.showInformationMessage('Cannot find coverage data for this file.');
 		return;
 	}
 
