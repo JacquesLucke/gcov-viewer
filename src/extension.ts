@@ -13,8 +13,8 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() { }
 
 const decorationType = vscode.window.createTextEditorDecorationType({
-	backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
 	isWholeLine: true,
+	backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
 	overviewRulerColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
 });
 
