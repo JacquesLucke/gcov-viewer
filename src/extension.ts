@@ -43,18 +43,28 @@ interface GcovJson {
 	data_file: string,
 };
 
-async function run_gcov(path: string) {
-	const command = `gcov --stdout --json-format '${path}'`;
-	return new Promise<GcovJson>((resolve, reject) => {
-		child_process.exec(command, { maxBuffer: 1024 * 1024 * 128 }, (error, stdout, stderr) => {
+async function run_gcov(paths: string[]) {
+	let command = 'gcov --stdout --json-format';
+	for (const path of paths) {
+		command += ` "${path}"`;
+	}
+	return new Promise<GcovJson[]>((resolve, reject) => {
+		child_process.exec(command, { maxBuffer: 1024 * 1024 * 1024 }, (error, stdout, stderr) => {
 			if (error) {
 				console.error(`exec error: ${error}`);
 				reject();
 				return;
 			}
 			const gcov_output = stdout.toString();
-			const gcov_data = JSON.parse(gcov_output);
-			resolve(gcov_data);
+			let output = [];
+			const parts = gcov_output.split('\n');
+			for (const part of parts) {
+				if (part.length === 0) {
+					continue;
+				}
+				output.push(JSON.parse(part));
+			}
+			resolve(output);
 		});
 	});
 }
@@ -71,17 +81,20 @@ let demangled_names: Map<string, string> = new Map();
 let loaded_gcda_files: string[] = [];
 
 async function load_coverage_data_from_paths(
-	paths: string[], increment: number, total_paths: number,
+	paths: string[], total_paths: number,
 	progress: vscode.Progress<{ message?: string; increment?: number }>,
 	cancellation_token: vscode.CancellationToken) {
 
-	for (const path of paths) {
-		if (cancellation_token.isCancellationRequested) {
-			return;
-		}
+	if (paths.length > 30) {
+		const middle = Math.floor(paths.length / 2);
+		await load_coverage_data_from_paths(paths.slice(0, middle), total_paths, progress, cancellation_token);
+		await load_coverage_data_from_paths(paths.slice(middle, paths.length), total_paths, progress, cancellation_token);
+		return;
+	}
 
-		progress.report({ increment: increment, message: `[${loaded_gcda_files.length}/${total_paths}] ${path}` });
-		const gcov_data = await run_gcov(path);
+	progress.report({ increment: 100 * paths.length / total_paths, message: `[${loaded_gcda_files.length}/${total_paths}]` });
+	const gcov_data_array = await run_gcov(paths);
+	for (const gcov_data of gcov_data_array) {
 		for (const file_data of gcov_data.files) {
 			let line_data_array = lines_by_file.get(file_data.file);
 			if (line_data_array === undefined) {
@@ -95,8 +108,16 @@ async function load_coverage_data_from_paths(
 				demangled_names.set(function_data.name, function_data.demangled_name);
 			}
 		}
-		loaded_gcda_files.push(path);
 	}
+	loaded_gcda_files.push(...paths);
+}
+
+function shuffle_array(a: any[]) {
+	for (let i = a.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[a[i], a[j]] = [a[j], a[i]];
+	}
+	return a;
 }
 
 async function load_coverage_data() {
@@ -112,15 +133,15 @@ async function load_coverage_data() {
 			loaded_gcda_files = [];
 			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
-			const gcda_paths = await get_gcda_paths();
+			let gcda_paths = await get_gcda_paths();
+			shuffle_array(gcda_paths);
 			const async_amount = 20;
-			const increment = 100.0 / gcda_paths.length;
 			const chunk_size = gcda_paths.length / async_amount;
 
 			let promises = [];
 			for (let i = 0; i < async_amount; i++) {
 				promises.push(load_coverage_data_from_paths(
-					gcda_paths.slice(i * chunk_size, (i + 1) * chunk_size), increment, gcda_paths.length, progress, cancellation_token));
+					gcda_paths.slice(i * chunk_size, (i + 1) * chunk_size), gcda_paths.length, progress, cancellation_token));
 			}
 			await Promise.all(promises);
 		}
