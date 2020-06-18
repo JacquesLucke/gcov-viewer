@@ -12,6 +12,7 @@
 	"activationEvents": [
 		"onCommand:gcov-viewer.show",
 		"onCommand:gcov-viewer.hide",
+		"onCommand:gcov-viewer.toggle",
 		"onCommand:gcov-viewer.reload_coverage_data",
 		"onCommand:gcov-viewer.delete_coverage_data"
 	],
@@ -26,6 +27,11 @@
 			{
 				"command": "gcov-viewer.hide",
 				"title": "Hide",
+				"category": "Gcov Viewer"
+			},
+			{
+				"command": "gcov-viewer.toggle",
+				"title": "Toggle",
 				"category": "Gcov Viewer"
 			},
 			{

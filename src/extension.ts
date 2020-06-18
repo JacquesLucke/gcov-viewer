@@ -3,11 +3,19 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as recursive_readdir from 'recursive-readdir';
 
+let is_showing_decorations: boolean = false;
+
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.hide', hide_decorations));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.toggle', toggle_decorations));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reload_coverage_data', reload_coverage_data));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
+	vscode.window.onDidChangeVisibleTextEditors(async editors => {
+		if (is_showing_decorations) {
+			await show_decorations();
+		}
+	});
 }
 
 export function deactivate() { }
@@ -169,20 +177,30 @@ async function delete_coverage_data() {
 
 }
 
-async function hide_decorations() {
-	const editor = vscode.window.activeTextEditor;
-	if (editor === undefined) {
-		return;
+async function toggle_decorations() {
+	if (is_showing_decorations) {
+		await hide_decorations();
 	}
-	editor.setDecorations(decorationType, []);
+	else {
+		await show_decorations();
+	}
+}
+
+async function hide_decorations() {
+	for (const editor of vscode.window.visibleTextEditors) {
+		editor.setDecorations(decorationType, []);
+	}
+	is_showing_decorations = false;
 }
 
 async function show_decorations() {
-	const editor = vscode.window.activeTextEditor;
-	if (editor === undefined) {
-		return;
+	for (const editor of vscode.window.visibleTextEditors) {
+		decorateEditor(editor);
 	}
+	is_showing_decorations = true;
+}
 
+async function decorateEditor(editor: vscode.TextEditor) {
 	if (lines_by_file.size === 0) {
 		await reload_coverage_data();
 	}
