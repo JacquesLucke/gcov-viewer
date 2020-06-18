@@ -239,7 +239,7 @@ async function show_decorations() {
 	}
 }
 
-function get_lines_data_for_file(absolute_path: string){
+function get_lines_data_for_file(absolute_path: string) {
 	const lines_data_of_file = lines_by_file.get(absolute_path);
 	if (lines_data_of_file !== undefined) {
 		return lines_data_of_file;
@@ -247,7 +247,7 @@ function get_lines_data_for_file(absolute_path: string){
 	for (const [stored_path, lines_data] of lines_by_file.entries()) {
 		if (absolute_path.endsWith(stored_path)) {
 			return lines_data;
-		} 
+		}
 	}
 	return undefined;
 }
@@ -305,14 +305,14 @@ async function decorateEditor(editor: vscode.TextEditor) {
 				count += line_data.count;
 			}
 			const demangled_name = demangled_names.get(function_name)!;
-			tooltip += `${count} ${(count === 1) ? 'Call' : 'Calls'} in  \`${demangled_name}\`\n\n`;
+			tooltip += `${count}x in \`${demangled_name}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
 			hoverMessage: tooltip,
 			renderOptions: {
 				after: {
-					contentText: '  Count: ' + total_count.toString(),
+					contentText: `   ${total_count.toString()}x`,
 					color: new vscode.ThemeColor('editorCodeLens.foreground'),
 					fontStyle: 'italic',
 				},
