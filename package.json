@@ -44,6 +44,26 @@
 				"title": "Delete Coverage Data",
 				"category": "Gcov Viewer"
 			}
+		],
+		"configuration": [
+			{
+				"title": "Gcov Viewer",
+				"properties": {
+					"gcov_viewer.include_directories": {
+						"type": "array",
+						"title": "Include Directories",
+						"scope": "window",
+						"description": "Directories that will be included in the search for .gcda files."
+					},
+					"gcov_viewer.gcov_binary": {
+						"type": "string",
+						"title": "Gcov binary",
+						"scope": "machine",
+						"description": "Path to the gcov binary",
+						"default": "gcov"
+					}
+				}
+			}
 		]
 	},
 	"scripts": {

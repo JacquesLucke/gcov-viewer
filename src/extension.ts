@@ -54,7 +54,14 @@ interface GcovJson {
 };
 
 async function run_gcov(paths: string[]) {
-	let command = 'gcov --stdout --json-format';
+	if (paths.length === 0) {
+		return [];
+	}
+
+	const config = vscode.workspace.getConfiguration('gcov_viewer', null);
+	const gcov_binary = config.get<string>('gcov_binary');
+
+	let command = `${gcov_binary} --stdout --json-format`;
 	for (const path of paths) {
 		command += ` "${path}"`;
 	}
@@ -80,10 +87,39 @@ async function run_gcov(paths: string[]) {
 }
 
 async function get_gcda_paths() {
-	const base_path = '/home/jacques/blender-git/build_linux/';
-	const all_paths = await recursive_readdir(base_path);
-	const gcda_paths = all_paths.filter(value => value.endsWith('.gcda'));
-	return gcda_paths;
+	if (vscode.workspace.workspaceFolders === undefined) {
+		return [];
+	}
+
+	let include_directories: string[] = [];
+	let workspace_folder_paths: string[] = [];
+	for (let workspace_folder of vscode.workspace.workspaceFolders) {
+		workspace_folder_paths.push(workspace_folder.uri.fsPath);
+		const config = vscode.workspace.getConfiguration('gcov_viewer', workspace_folder);
+		const dirs = config.get<string[]>('include_directories');
+		if (dirs !== undefined) {
+			for (let dir of dirs) {
+				dir = dir.replace('${workspaceFolder}', workspace_folder.uri.fsPath);
+				include_directories.push(dir);
+			}
+		}
+	}
+
+	if (include_directories.length === 0) {
+		include_directories.push(...workspace_folder_paths);
+	}
+
+	let gcda_paths: Set<string> = new Set();
+	for (const base_path of include_directories) {
+		const all_paths = await recursive_readdir(base_path);
+		for (const path of all_paths) {
+			if (path.endsWith('.gcda')) {
+				gcda_paths.add(path);
+			}
+		}
+	}
+
+	return Array.from(gcda_paths);
 }
 
 function reset_loaded_coverage_data() {
@@ -194,10 +230,13 @@ async function hide_decorations() {
 }
 
 async function show_decorations() {
+	let found_decorations = false;
 	for (const editor of vscode.window.visibleTextEditors) {
-		decorateEditor(editor);
+		found_decorations = found_decorations || await decorateEditor(editor);
 	}
-	is_showing_decorations = true;
+	if (found_decorations) {
+		is_showing_decorations = true;
+	}
 }
 
 async function decorateEditor(editor: vscode.TextEditor) {
@@ -208,7 +247,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	const path = editor.document.uri.fsPath;
 	const lines_data_of_file = lines_by_file.get(path);
 	if (lines_data_of_file === undefined) {
-		return;
+		return false;
 	}
 
 
@@ -270,4 +309,6 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		decorations.push(decoration);
 	}
 	editor.setDecorations(decorationType, decorations);
+
+	return decorations.length > 0;
 }
