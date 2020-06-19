@@ -29,6 +29,11 @@ export function activate(context: vscode.ExtensionContext) {
 			await COMMAND_showDecorations();
 		}
 	});
+	vscode.workspace.onDidChangeConfiguration(async () => {
+		if (isShowingDecorations) {
+			await COMMAND_showDecorations();
+		}
+	});
 }
 
 export function deactivate() { }
@@ -49,6 +54,10 @@ const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
 
 function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
 	return vscode.workspace.getConfiguration('gcovViewer', workspaceFolder);
+}
+
+function getTextDocumentConfig(document: vscode.TextDocument) {
+	return vscode.workspace.getConfiguration('gcovViewer', document);
 }
 
 function getIncludeDirectories(): string[] {
@@ -365,9 +374,16 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		return false;
 	}
 
+	const config = getTextDocumentConfig(editor.document);
+
 	const decorations = createDecorationsForFile(linesDataOfFile);
 	editor.setDecorations(calledLinesDecorationType, decorations.calledLineDecorations);
-	editor.setDecorations(missedLinesDecorationType, decorations.missedLineDecorations);
+	if (config.get<boolean>('highlightMissedLines')) {
+		editor.setDecorations(missedLinesDecorationType, decorations.missedLineDecorations);
+	}
+	else {
+		editor.setDecorations(missedLinesDecorationType, []);
+	}
 
 	const decorationsAmount = decorations.calledLineDecorations.length + decorations.missedLineDecorations.length;
 	return decorationsAmount > 0;

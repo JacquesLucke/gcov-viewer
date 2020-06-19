@@ -73,6 +73,13 @@
 						"scope": "machine",
 						"description": "Path to the gcov binary",
 						"default": "gcov"
+					},
+					"gcovViewer.highlightMissedLines": {
+						"type": "boolean",
+						"title": "Highlight Missed Lines",
+						"scope": "resource",
+						"description": "Not only mark the called lines but also the lines that have not been executed. This might not work in some header files, because gcov is not providing the data.",
+						"default": false
 					}
 				}
 			}
