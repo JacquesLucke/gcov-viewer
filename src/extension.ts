@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as util from 'util';
 import * as os from 'os';
-import { GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
+import { GcovData, GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
 
 let isShowingDecorations: boolean = false;
@@ -97,36 +97,44 @@ resetLoadedCoverageData();
 
 type MyProgress = vscode.Progress<{ message?: string; increment?: number }>;
 
+function handleLoadedGcovData(gcovData: GcovData) {
+	for (const fileData of gcovData.files) {
+		const lineDataArray = linesByFile.get(fileData.file);
+		if (lineDataArray === undefined) {
+			linesByFile.set(fileData.file, fileData.lines);
+		}
+		else {
+			lineDataArray.push(...fileData.lines);
+		}
+
+		for (const functionData of fileData.functions) {
+			demangledNames.set(functionData.name, functionData.demangled_name);
+		}
+	}
+}
+
 async function reloadCoverageDataFromPaths(
 	paths: string[], totalPaths: number,
 	progress: MyProgress,
 	token: vscode.CancellationToken) {
 
-	if (paths.length > 30) {
-		const middle = Math.floor(paths.length / 2);
-		await reloadCoverageDataFromPaths(paths.slice(0, middle), totalPaths, progress, token);
-		await reloadCoverageDataFromPaths(paths.slice(middle, paths.length), totalPaths, progress, token);
-		return;
-	}
-
-	progress.report({ increment: 100 * paths.length / totalPaths, message: `[${loadedGcdaFiles.length}/${totalPaths}] Parsing` });
-	const gcovDataArray = await loadGcovData(paths);
-	for (const gcovData of gcovDataArray) {
-		for (const fileData of gcovData.files) {
-			const lineDataArray = linesByFile.get(fileData.file);
-			if (lineDataArray === undefined) {
-				linesByFile.set(fileData.file, fileData.lines);
-			}
-			else {
-				lineDataArray.push(...fileData.lines);
-			}
-
-			for (const functionData of fileData.functions) {
-				demangledNames.set(functionData.name, functionData.demangled_name);
-			}
+	const chunks = splitArrayInChunks(paths, Math.ceil(paths.length / 30));
+	for (const pathsChunk of chunks) {
+		if (token.isCancellationRequested) {
+			return;
 		}
+
+		const gcovDataArray = await loadGcovData(pathsChunk);
+		for (const gcovData of gcovDataArray) {
+			handleLoadedGcovData(gcovData);
+		}
+		loadedGcdaFiles.push(...pathsChunk);
+
+		progress.report({
+			increment: 100 * pathsChunk.length / totalPaths,
+			message: `[${loadedGcdaFiles.length}/${totalPaths}] Parsing`
+		});
 	}
-	loadedGcdaFiles.push(...paths);
 }
 
 function shuffleArray(a: any[]) {
