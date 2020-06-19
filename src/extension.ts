@@ -11,6 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.toggle', toggle_decorations));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reload_coverage_data', reload_coverage_data));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.select_include_directory', select_include_directory));
 	vscode.window.onDidChangeVisibleTextEditors(async editors => {
 		if (is_showing_decorations) {
 			await show_decorations();
@@ -86,6 +87,10 @@ async function run_gcov(paths: string[]) {
 	});
 }
 
+function get_workspace_folder_config(workspaceFolder: vscode.WorkspaceFolder) {
+	return vscode.workspace.getConfiguration('gcov_viewer', workspaceFolder);
+}
+
 async function get_gcda_paths() {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return [];
@@ -95,7 +100,7 @@ async function get_gcda_paths() {
 	let workspace_folder_paths: string[] = [];
 	for (let workspace_folder of vscode.workspace.workspaceFolders) {
 		workspace_folder_paths.push(workspace_folder.uri.fsPath);
-		const config = vscode.workspace.getConfiguration('gcov_viewer', workspace_folder);
+		const config = get_workspace_folder_config(workspace_folder);
 		const dirs = config.get<string[]>('include_directories');
 		if (dirs !== undefined) {
 			for (let dir of dirs) {
@@ -278,7 +283,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		}
 	}
 
-	let decorations: vscode.DecorationOptions[] = [];
+	const decorations: vscode.DecorationOptions[] = [];
 	for (const [line_number, line_data_array] of hit_lines) {
 		const line_index = line_number - 1;
 		const range = new vscode.Range(
@@ -323,4 +328,30 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	editor.setDecorations(decorationType, decorations);
 
 	return decorations.length > 0;
+}
+
+async function select_include_directory() {
+	if (vscode.workspace.workspaceFolders === undefined) {
+		return;
+	}
+
+	const value = await vscode.window.showOpenDialog({
+		canSelectFiles: false,
+		canSelectFolders: true,
+		canSelectMany: true,
+		openLabel: 'Select Include Directory'
+	});
+	if (value === undefined) {
+		return;
+	}
+
+	const paths: string[] = [];
+	for (const uri of value) {
+		paths.push(uri.fsPath);
+	}
+
+	for (const workspaceFolder of vscode.workspace.workspaceFolders) {
+		const config = get_workspace_folder_config(workspaceFolder);
+		config.update('include_directories', paths);
+	}
 }

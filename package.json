@@ -14,7 +14,8 @@
 		"onCommand:gcov-viewer.hide",
 		"onCommand:gcov-viewer.toggle",
 		"onCommand:gcov-viewer.reload_coverage_data",
-		"onCommand:gcov-viewer.delete_coverage_data"
+		"onCommand:gcov-viewer.delete_coverage_data",
+		"onCommand:gcov-viewer.select_include_directory"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -42,6 +43,11 @@
 			{
 				"command": "gcov-viewer.delete_coverage_data",
 				"title": "Delete Coverage Data",
+				"category": "Gcov Viewer"
+			},
+			{
+				"command": "gcov-viewer.select_include_directory",
+				"title": "Select Include Directory",
 				"category": "Gcov Viewer"
 			}
 		],
