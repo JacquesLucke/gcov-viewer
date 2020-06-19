@@ -5,6 +5,7 @@ import * as os from 'os';
 import { GcovData, GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
+import { assert } from 'console';
 
 let isShowingDecorations: boolean = false;
 
@@ -36,6 +37,12 @@ const calledLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
 	backgroundColor: "rgba(50, 240, 50, 0.1)",
 	overviewRulerColor: "rgba(50, 240, 50, 0.1)",
+});
+
+const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
+	isWholeLine: true,
+	backgroundColor: "rgba(240, 50, 50, 0.1)",
+	overviewRulerColor: "rgba(240, 50, 50, 0.1)",
 });
 
 function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
@@ -205,6 +212,7 @@ async function COMMAND_toggleDecorations() {
 async function COMMAND_hideDecorations() {
 	for (const editor of vscode.window.visibleTextEditors) {
 		editor.setDecorations(calledLinesDecorationType, []);
+		editor.setDecorations(missedLinesDecorationType, []);
 	}
 	isShowingDecorations = false;
 }
@@ -240,54 +248,47 @@ function getDataPerLine(lines: GcovLineData[]) {
 	const dataPerLine: Map<number, GcovLineData[]> = new Map();
 
 	for (const lineData of lines) {
-		if (lineData.count > 0) {
-			const key = lineData.line_number;
-			const data = dataPerLine.get(key);
-			if (data === undefined) {
-				dataPerLine.set(key, [lineData]);
-			}
-			else {
-				data.push(lineData);
-			}
+		const key = lineData.line_number;
+		const data = dataPerLine.get(key);
+		if (data === undefined) {
+			dataPerLine.set(key, [lineData]);
+		}
+		else {
+			data.push(lineData);
 		}
 	}
 
 	return dataPerLine;
 }
 
-async function decorateEditor(editor: vscode.TextEditor) {
-	if (!isCoverageDataLoaded()) {
-		await COMMAND_reloadGcdaFiles();
-	}
+function createDecorationForLineData(lineDataArray: GcovLineData[], calledLineDecorations: vscode.DecorationOptions[], missedLineDecorations: vscode.DecorationOptions[]) {
+	assert(lineDataArray.length > 0);
+	const lineIndex = lineDataArray[0].line_number - 1;
+	const range = new vscode.Range(
+		new vscode.Position(lineIndex, 0),
+		new vscode.Position(lineIndex, 100000));
 
-	const path = editor.document.uri.fsPath;
-	const linesDataOfFile = getLinesDataForFile(path);
-	if (linesDataOfFile === undefined) {
-		return false;
-	}
-
-	const hitLines: Map<number, GcovLineData[]> = getDataPerLine(linesDataOfFile);
-
-	const decorations: vscode.DecorationOptions[] = [];
-	for (const [lineNumber, lineDataArray] of hitLines) {
-		const lineIndex = lineNumber - 1;
-		const range = new vscode.Range(
-			new vscode.Position(lineIndex, 0),
-			new vscode.Position(lineIndex, 100000));
-
-		let totalCount = 0;
-		const lineDataByFunction: Map<string, GcovLineData[]> = new Map();
-		for (const lineData of lineDataArray) {
-			totalCount += lineData.count;
-			const data = lineDataByFunction.get(lineData.function_name);
-			if (data === undefined) {
-				lineDataByFunction.set(lineData.function_name, [lineData]);
-			}
-			else {
-				data.push(lineData);
-			}
+	let totalCount = 0;
+	const lineDataByFunction: Map<string, GcovLineData[]> = new Map();
+	for (const lineData of lineDataArray) {
+		totalCount += lineData.count;
+		const data = lineDataByFunction.get(lineData.function_name);
+		if (data === undefined) {
+			lineDataByFunction.set(lineData.function_name, [lineData]);
 		}
+		else {
+			data.push(lineData);
+		}
+	}
 
+	if (totalCount === 0) {
+		const decoration: vscode.DecorationOptions = {
+			range: range,
+			hoverMessage: 'Line has not been executed',
+		};
+		missedLineDecorations.push(decoration);
+	}
+	else {
 		let tooltip = '';
 		for (const [functionName, dataArray] of lineDataByFunction.entries()) {
 			let count = 0;
@@ -308,11 +309,32 @@ async function decorateEditor(editor: vscode.TextEditor) {
 				},
 			},
 		};
-		decorations.push(decoration);
+		calledLineDecorations.push(decoration);
 	}
-	editor.setDecorations(calledLinesDecorationType, decorations);
+}
 
-	return decorations.length > 0;
+async function decorateEditor(editor: vscode.TextEditor) {
+	if (!isCoverageDataLoaded()) {
+		await COMMAND_reloadGcdaFiles();
+	}
+
+	const path = editor.document.uri.fsPath;
+	const linesDataOfFile = getLinesDataForFile(path);
+	if (linesDataOfFile === undefined) {
+		return false;
+	}
+
+	const hitLines: Map<number, GcovLineData[]> = getDataPerLine(linesDataOfFile);
+
+	const calledLineDecorations: vscode.DecorationOptions[] = [];
+	const missedLineDecorations: vscode.DecorationOptions[] = [];
+	for (const lineDataArray of hitLines.values()) {
+		createDecorationForLineData(lineDataArray, calledLineDecorations, missedLineDecorations);
+	}
+	editor.setDecorations(calledLinesDecorationType, calledLineDecorations);
+	editor.setDecorations(missedLinesDecorationType, missedLineDecorations);
+
+	return calledLineDecorations.length > 0;
 }
 
 async function COMMAND_selectIncludeDirectory() {
