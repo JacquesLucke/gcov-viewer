@@ -3,6 +3,7 @@
 	"displayName": "Gcov Viewer",
 	"description": "Annotate source files based on gcov output.",
 	"version": "0.0.1",
+	"license": "MIT",
 	"engines": {
 		"vscode": "^1.46.0"
 	},
