@@ -103,31 +103,28 @@ async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationTo
 	return Array.from(gcdaPaths);
 }
 
-function resetLoadedCoverageData() {
-	linesByFile = new Map();
-	demangledNames = new Map();
-	loadedGcdaFiles = [];
-}
+class CoverageCache {
+	linesByFile: Map<string, GcovLineData[]> = new Map();
+	demangledNames: Map<string, string> = new Map();
+	loadedGcdaFiles: string[] = [];
+};
 
-let linesByFile: Map<string, GcovLineData[]>;
-let demangledNames: Map<string, string>;
-let loadedGcdaFiles: string[];
-resetLoadedCoverageData();
+let coverageCache = new CoverageCache();
 
 type MyProgress = vscode.Progress<{ message?: string; increment?: number }>;
 
 function handleLoadedGcovData(gcovData: GcovData) {
 	for (const fileData of gcovData.files) {
-		const lineDataArray = linesByFile.get(fileData.file);
+		const lineDataArray = coverageCache.linesByFile.get(fileData.file);
 		if (lineDataArray === undefined) {
-			linesByFile.set(fileData.file, fileData.lines);
+			coverageCache.linesByFile.set(fileData.file, fileData.lines);
 		}
 		else {
 			lineDataArray.push(...fileData.lines);
 		}
 
 		for (const functionData of fileData.functions) {
-			demangledNames.set(functionData.name, functionData.demangled_name);
+			coverageCache.demangledNames.set(functionData.name, functionData.demangled_name);
 		}
 	}
 }
@@ -147,11 +144,11 @@ async function reloadCoverageDataFromPaths(
 		for (const gcovData of gcovDataArray) {
 			handleLoadedGcovData(gcovData);
 		}
-		loadedGcdaFiles.push(...pathsChunk);
+		coverageCache.loadedGcdaFiles.push(...pathsChunk);
 
 		progress.report({
 			increment: 100 * pathsChunk.length / totalPaths,
-			message: `[${loadedGcdaFiles.length}/${totalPaths}] Parsing`
+			message: `[${coverageCache.loadedGcdaFiles.length}/${totalPaths}] Parsing`
 		});
 	}
 }
@@ -167,7 +164,7 @@ async function reloadGcdaFiles() {
 			title: 'Reload Coverage Data',
 		},
 		async (progress, token) => {
-			resetLoadedCoverageData();
+			coverageCache = new CoverageCache();
 			progress.report({ increment: 0 });
 
 			const gcdaPaths = await getGcdaPaths(progress, token);
@@ -190,7 +187,7 @@ async function COMMAND_reloadGcdaFiles() {
 }
 
 async function COMMAND_deleteGcdaFiles() {
-	resetLoadedCoverageData();
+	coverageCache = new CoverageCache();
 
 	await vscode.window.withProgress(
 		{
@@ -244,11 +241,11 @@ async function COMMAND_showDecorations() {
 }
 
 function getLinesDataForFile(absolutePath: string) {
-	const linesDataOfFile = linesByFile.get(absolutePath);
+	const linesDataOfFile = coverageCache.linesByFile.get(absolutePath);
 	if (linesDataOfFile !== undefined) {
 		return linesDataOfFile;
 	}
-	for (const [storedPath, linesData] of linesByFile.entries()) {
+	for (const [storedPath, linesData] of coverageCache.linesByFile.entries()) {
 		if (absolutePath.endsWith(storedPath)) {
 			return linesData;
 		}
@@ -257,7 +254,7 @@ function getLinesDataForFile(absolutePath: string) {
 }
 
 function isCoverageDataLoaded() {
-	return linesByFile.size > 0;
+	return coverageCache.linesByFile.size > 0;
 }
 
 function groupDataPerLine(lines: GcovLineData[]): Map<number, GcovLineData[]> {
@@ -312,7 +309,7 @@ function createTooltipForExecutedLine(lineDataByFunction: Map<string, GcovLineDa
 		for (const lineData of dataArray) {
 			count += lineData.count;
 		}
-		const demangledName = demangledNames.get(functionName)!;
+		const demangledName = coverageCache.demangledNames.get(functionName)!;
 		tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
 	}
 	return tooltip;
@@ -429,7 +426,7 @@ async function COMMAND_dumpPathsWithCoverageData() {
 		await reloadGcdaFiles();
 	}
 
-	const paths = Array.from(linesByFile.keys());
+	const paths = Array.from(coverageCache.linesByFile.keys());
 	paths.sort();
 	const dumpedPaths = paths.join('\n');
 	const document = await vscode.workspace.openTextDocument({
