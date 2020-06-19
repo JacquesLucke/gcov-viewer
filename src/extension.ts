@@ -4,6 +4,7 @@ import * as util from 'util';
 import * as os from 'os';
 import { GcovData, GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
+import { splitArrayInChunks, shuffleArray } from './arrayUtils';
 
 let isShowingDecorations: boolean = false;
 
@@ -137,23 +138,6 @@ async function reloadCoverageDataFromPaths(
 	}
 }
 
-function shuffleArray(a: any[]) {
-	for (let i = a.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[a[i], a[j]] = [a[j], a[i]];
-	}
-	return a;
-}
-
-function splitArrayInChunks(array: any[], chunkAmount: number) {
-	const chunkSize = Math.ceil(array.length / chunkAmount);
-	const chunks = [];
-	for (let i = 0; i < chunkAmount; i++) {
-		chunks.push(array.slice(i * chunkSize, (i + 1) * chunkSize));
-	}
-	return chunks;
-}
-
 async function COMMAND_reloadGcdaFiles() {
 	if (!await isGcovCompatible()) {
 		return;
@@ -180,8 +164,6 @@ async function COMMAND_reloadGcdaFiles() {
 			await Promise.all(promises);
 		}
 	);
-
-
 }
 
 async function COMMAND_deleteGcdaFiles() {
@@ -369,6 +351,4 @@ async function COMMAND_dumpPathsWithCoverageData() {
 		content: dumpedPaths,
 	});
 	vscode.window.showTextDocument(document);
-
-
 }
