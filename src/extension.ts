@@ -120,7 +120,7 @@ async function reloadCoverageDataFromPaths(
 			return;
 		}
 
-		coverageCache.loadGcdaFiles(pathsChunk);
+		await coverageCache.loadGcdaFiles(pathsChunk);
 
 		progress.report({
 			increment: 100 * pathsChunk.length / totalPaths,
@@ -159,7 +159,7 @@ async function reloadGcdaFiles() {
 
 async function COMMAND_reloadGcdaFiles() {
 	await reloadGcdaFiles();
-	await COMMAND_showDecorations();
+	await showDecorations();
 }
 
 async function COMMAND_deleteGcdaFiles() {
@@ -185,8 +185,6 @@ async function COMMAND_deleteGcdaFiles() {
 			}
 		}
 	);
-
-
 }
 
 async function COMMAND_toggleDecorations() {
@@ -206,14 +204,22 @@ async function COMMAND_hideDecorations() {
 	isShowingDecorations = false;
 }
 
-async function COMMAND_showDecorations() {
-	let found_decorations = false;
+async function showDecorations() {
+	let foundDecorations = false;
 	for (const editor of vscode.window.visibleTextEditors) {
-		found_decorations = found_decorations || await decorateEditor(editor);
+		const addedDecorations = await decorateEditor(editor);
+		foundDecorations = addedDecorations || foundDecorations;
 	}
-	if (found_decorations) {
+	if (foundDecorations) {
 		isShowingDecorations = true;
 	}
+}
+
+async function COMMAND_showDecorations() {
+	if (!isCoverageDataLoaded()) {
+		await reloadGcdaFiles();
+	}
+	await showDecorations();
 }
 
 function getLinesDataForFile(absolutePath: string) {
@@ -344,10 +350,6 @@ function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorati
 }
 
 async function decorateEditor(editor: vscode.TextEditor) {
-	if (!isCoverageDataLoaded()) {
-		await reloadGcdaFiles();
-	}
-
 	const path = editor.document.uri.fsPath;
 	const linesDataOfFile = getLinesDataForFile(path);
 	if (linesDataOfFile === undefined) {
