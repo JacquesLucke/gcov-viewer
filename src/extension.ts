@@ -285,8 +285,10 @@ function createTooltipForExecutedLine(lineDataByFunction: Map<string, GcovLineDa
 		for (const lineData of dataArray) {
 			count += lineData.count;
 		}
-		const demangledName = coverageCache.demangledNames.get(functionName)!;
-		tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
+		if (count > 0) {
+			const demangledName = coverageCache.demangledNames.get(functionName)!;
+			tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
+		}
 	}
 	return tooltip;
 }
