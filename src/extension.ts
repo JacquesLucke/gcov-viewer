@@ -246,7 +246,7 @@ function isCoverageDataLoaded() {
 	return linesByFile.size > 0;
 }
 
-function getDataPerLine(lines: GcovLineData[]) {
+function groupDataPerLine(lines: GcovLineData[]): Map<number, GcovLineData[]> {
 	const dataPerLine: Map<number, GcovLineData[]> = new Map();
 
 	for (const lineData of lines) {
@@ -263,56 +263,95 @@ function getDataPerLine(lines: GcovLineData[]) {
 	return dataPerLine;
 }
 
-function createDecorationForLineData(lineDataArray: GcovLineData[], calledLineDecorations: vscode.DecorationOptions[], missedLineDecorations: vscode.DecorationOptions[]) {
-	assert(lineDataArray.length > 0);
-	const lineIndex = lineDataArray[0].line_number - 1;
-	const range = new vscode.Range(
-		new vscode.Position(lineIndex, 0),
-		new vscode.Position(lineIndex, 100000));
-
-	let totalCount = 0;
-	const lineDataByFunction: Map<string, GcovLineData[]> = new Map();
-	for (const lineData of lineDataArray) {
-		totalCount += lineData.count;
-		const data = lineDataByFunction.get(lineData.function_name);
+function groupDataPerFunction(lines: GcovLineData[]): Map<string, GcovLineData[]> {
+	const dataPerFunction: Map<string, GcovLineData[]> = new Map();
+	for (const lineData of lines) {
+		const data = dataPerFunction.get(lineData.function_name);
 		if (data === undefined) {
-			lineDataByFunction.set(lineData.function_name, [lineData]);
+			dataPerFunction.set(lineData.function_name, [lineData]);
 		}
 		else {
 			data.push(lineData);
 		}
 	}
+	return dataPerFunction;
+}
 
-	if (totalCount === 0) {
-		const decoration: vscode.DecorationOptions = {
-			range: range,
-			hoverMessage: 'Line has not been executed',
-		};
-		missedLineDecorations.push(decoration);
+function sumTotalCalls(lines: GcovLineData[]): number {
+	let sum = 0;
+	for (const lineData of lines) {
+		sum += lineData.count;
 	}
-	else {
-		let tooltip = '';
-		for (const [functionName, dataArray] of lineDataByFunction.entries()) {
-			let count = 0;
-			for (const lineData of dataArray) {
-				count += lineData.count;
-			}
-			const demangledName = demangledNames.get(functionName)!;
-			tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
+	return sum;
+}
+
+function createRangeForLine(lineIndex: number) {
+	return new vscode.Range(
+		new vscode.Position(lineIndex, 0),
+		new vscode.Position(lineIndex, 100000));
+}
+
+function createTooltipForExecutedLine(lineDataByFunction: Map<string, GcovLineData[]>) {
+	let tooltip = '';
+	for (const [functionName, dataArray] of lineDataByFunction.entries()) {
+		let count = 0;
+		for (const lineData of dataArray) {
+			count += lineData.count;
 		}
-		const decoration: vscode.DecorationOptions = {
-			range: range,
-			hoverMessage: tooltip,
-			renderOptions: {
-				after: {
-					contentText: `   ${totalCount.toLocaleString()}x`,
-					color: new vscode.ThemeColor('editorCodeLens.foreground'),
-					fontStyle: 'italic',
-				},
-			},
-		};
-		calledLineDecorations.push(decoration);
+		const demangledName = demangledNames.get(functionName)!;
+		tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
 	}
+	return tooltip;
+}
+
+function createMissedLineDecoration(range: vscode.Range) {
+	const decoration: vscode.DecorationOptions = {
+		range: range,
+		hoverMessage: 'Line has not been executed',
+	};
+	return decoration;
+}
+
+function createExecutedLineDecoration(range: vscode.Range, totalCalls: number, lineDataArray: GcovLineData[]) {
+	const lineDataByFunction: Map<string, GcovLineData[]> = groupDataPerFunction(lineDataArray);
+	let tooltip = createTooltipForExecutedLine(lineDataByFunction);
+	const decoration: vscode.DecorationOptions = {
+		range: range,
+		hoverMessage: tooltip,
+		renderOptions: {
+			after: {
+				contentText: `   ${totalCalls.toLocaleString()}x`,
+				color: new vscode.ThemeColor('editorCodeLens.foreground'),
+				fontStyle: 'italic',
+			},
+		},
+	};
+	return decoration;
+}
+
+class LineDecorationsGroup {
+	calledLineDecorations: vscode.DecorationOptions[] = [];
+	missedLineDecorations: vscode.DecorationOptions[] = [];
+};
+
+function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorationsGroup {
+	const decorations = new LineDecorationsGroup();
+
+	const hitLines: Map<number, GcovLineData[]> = groupDataPerLine(linesDataOfFile);
+
+	for (const lineDataArray of hitLines.values()) {
+		const lineIndex = lineDataArray[0].line_number - 1;
+		const range = createRangeForLine(lineIndex);
+		const totalCalls = sumTotalCalls(lineDataArray);
+		if (totalCalls === 0) {
+			decorations.missedLineDecorations.push(createMissedLineDecoration(range));
+		}
+		else {
+			decorations.calledLineDecorations.push(createExecutedLineDecoration(range, totalCalls, lineDataArray));
+		}
+	}
+
+	return decorations;
 }
 
 async function decorateEditor(editor: vscode.TextEditor) {
@@ -326,17 +365,12 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		return false;
 	}
 
-	const hitLines: Map<number, GcovLineData[]> = getDataPerLine(linesDataOfFile);
+	const decorations = createDecorationsForFile(linesDataOfFile);
+	editor.setDecorations(calledLinesDecorationType, decorations.calledLineDecorations);
+	editor.setDecorations(missedLinesDecorationType, decorations.missedLineDecorations);
 
-	const calledLineDecorations: vscode.DecorationOptions[] = [];
-	const missedLineDecorations: vscode.DecorationOptions[] = [];
-	for (const lineDataArray of hitLines.values()) {
-		createDecorationForLineData(lineDataArray, calledLineDecorations, missedLineDecorations);
-	}
-	editor.setDecorations(calledLinesDecorationType, calledLineDecorations);
-	editor.setDecorations(missedLinesDecorationType, missedLineDecorations);
-
-	return calledLineDecorations.length > 0;
+	const decorationsAmount = decorations.calledLineDecorations.length + decorations.missedLineDecorations.length;
+	return decorationsAmount > 0;
 }
 
 async function COMMAND_selectIncludeDirectory() {
