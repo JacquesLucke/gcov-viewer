@@ -7,6 +7,13 @@
 	"engines": {
 		"vscode": "^1.46.0"
 	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/JacquesLucke/gcov-viewer"
+	},
+	"bugs": {
+		"url": "https://github.com/JacquesLucke/gcov-viewer/issues"
+	},
 	"categories": [
 		"Other"
 	],
