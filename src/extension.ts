@@ -40,12 +40,10 @@ function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
 	return vscode.workspace.getConfiguration('gcov_viewer', workspaceFolder);
 }
 
-async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
+function getIncludeDirectories(): string[] {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return [];
 	}
-
-	progress?.report({ message: 'Searching .gcda files' });
 
 	const includeDirectories: string[] = [];
 	const workspaceFolderPaths: string[] = [];
@@ -60,15 +58,20 @@ async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationTo
 			}
 		}
 	}
-
 	if (includeDirectories.length === 0) {
 		includeDirectories.push(...workspaceFolderPaths);
 	}
+	return includeDirectories;
+}
+
+async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
+	progress?.report({ message: 'Searching .gcda files' });
+	const includeDirectories = getIncludeDirectories();
 
 	let counter = 0;
 	const gcdaPaths: Set<string> = new Set();
-	for (const basePath of includeDirectories) {
-		await recursiveReaddir(basePath, path => {
+	for (const includeDirectory of includeDirectories) {
+		await recursiveReaddir(includeDirectory, path => {
 			if (path.endsWith('.gcda')) {
 				gcdaPaths.add(path);
 			}
