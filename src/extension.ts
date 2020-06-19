@@ -5,7 +5,8 @@ import * as os from 'os';
 import { GcovData, GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
-import { assert } from 'console';
+import { CoverageCache } from './coverageCache';
+
 
 let isShowingDecorations: boolean = false;
 
@@ -103,31 +104,10 @@ async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationTo
 	return Array.from(gcdaPaths);
 }
 
-class CoverageCache {
-	linesByFile: Map<string, GcovLineData[]> = new Map();
-	demangledNames: Map<string, string> = new Map();
-	loadedGcdaFiles: string[] = [];
-};
-
 let coverageCache = new CoverageCache();
 
 type MyProgress = vscode.Progress<{ message?: string; increment?: number }>;
 
-function handleLoadedGcovData(gcovData: GcovData) {
-	for (const fileData of gcovData.files) {
-		const lineDataArray = coverageCache.linesByFile.get(fileData.file);
-		if (lineDataArray === undefined) {
-			coverageCache.linesByFile.set(fileData.file, fileData.lines);
-		}
-		else {
-			lineDataArray.push(...fileData.lines);
-		}
-
-		for (const functionData of fileData.functions) {
-			coverageCache.demangledNames.set(functionData.name, functionData.demangled_name);
-		}
-	}
-}
 
 async function reloadCoverageDataFromPaths(
 	paths: string[], totalPaths: number,
@@ -140,11 +120,7 @@ async function reloadCoverageDataFromPaths(
 			return;
 		}
 
-		const gcovDataArray = await loadGcovData(pathsChunk);
-		for (const gcovData of gcovDataArray) {
-			handleLoadedGcovData(gcovData);
-		}
-		coverageCache.loadedGcdaFiles.push(...pathsChunk);
+		coverageCache.loadGcdaFiles(pathsChunk);
 
 		progress.report({
 			increment: 100 * pathsChunk.length / totalPaths,
