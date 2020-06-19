@@ -236,6 +236,25 @@ function isCoverageDataLoaded() {
 	return linesByFile.size > 0;
 }
 
+function getDataPerLine(lines: GcovLineData[]) {
+	const dataPerLine: Map<number, GcovLineData[]> = new Map();
+
+	for (const lineData of lines) {
+		if (lineData.count > 0) {
+			const key = lineData.line_number;
+			const data = dataPerLine.get(key);
+			if (data === undefined) {
+				dataPerLine.set(key, [lineData]);
+			}
+			else {
+				data.push(lineData);
+			}
+		}
+	}
+
+	return dataPerLine;
+}
+
 async function decorateEditor(editor: vscode.TextEditor) {
 	if (!isCoverageDataLoaded()) {
 		await COMMAND_reloadGcdaFiles();
@@ -247,20 +266,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		return false;
 	}
 
-	const hitLines: Map<number, GcovLineData[]> = new Map();
-
-	for (const lineData of linesDataOfFile) {
-		if (lineData.count > 0) {
-			const key = lineData.line_number;
-			const data = hitLines.get(key);
-			if (data === undefined) {
-				hitLines.set(key, [lineData]);
-			}
-			else {
-				data.push(lineData);
-			}
-		}
-	}
+	const hitLines: Map<number, GcovLineData[]> = getDataPerLine(linesDataOfFile);
 
 	const decorations: vscode.DecorationOptions[] = [];
 	for (const [lineNumber, lineDataArray] of hitLines) {
