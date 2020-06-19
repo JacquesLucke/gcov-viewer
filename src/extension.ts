@@ -12,6 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reload_coverage_data', reload_coverage_data));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.select_include_directory', select_include_directory));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.dump_paths_with_coverage_data', dump_paths_with_coverage_data));
 	vscode.window.onDidChangeVisibleTextEditors(async editors => {
 		if (is_showing_decorations) {
 			await show_decorations();
@@ -257,8 +258,12 @@ function get_lines_data_for_file(absolute_path: string) {
 	return undefined;
 }
 
+function is_coverage_data_loaded() {
+	return lines_by_file.size > 0;
+}
+
 async function decorateEditor(editor: vscode.TextEditor) {
-	if (lines_by_file.size === 0) {
+	if (!is_coverage_data_loaded()) {
 		await reload_coverage_data();
 	}
 
@@ -354,4 +359,22 @@ async function select_include_directory() {
 		const config = get_workspace_folder_config(workspaceFolder);
 		config.update('include_directories', paths);
 	}
+}
+
+async function dump_paths_with_coverage_data() {
+	if (vscode.workspace.workspaceFolders === undefined) {
+		return;
+	}
+
+	if (!is_coverage_data_loaded()) {
+		await reload_coverage_data();
+	}
+
+	const paths = Array.from(lines_by_file.keys());
+	paths.sort();
+	const dumped_paths = paths.join('\n');
+	const document = await vscode.workspace.openTextDocument({
+		content: dumped_paths,
+	});
+	vscode.window.showTextDocument(document);
 }
