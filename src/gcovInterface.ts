@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 
-export interface LineData {
+export interface GcovLineData {
     count: number,
     function_name: string,
     line_number: number,
     unexecuted_block: boolean,
 };
 
-export interface FunctionData {
+export interface GcovFunctionData {
     blocks: number,
     blocks_executed: number,
     demangled_name: string,
@@ -23,8 +23,8 @@ export interface FunctionData {
 export interface GcovData {
     files: [{
         file: string,
-        functions: FunctionData[],
-        lines: LineData[],
+        functions: GcovFunctionData[],
+        lines: GcovLineData[],
     }],
     current_working_directory: string,
     data_file: string,
@@ -56,7 +56,7 @@ export async function isGcovCompatible() {
     });
 }
 
-export async function runGcov(paths: string[]) {
+export async function loadGcovData(paths: string[]): Promise<GcovData[]> {
     if (paths.length === 0) {
         return [];
     }

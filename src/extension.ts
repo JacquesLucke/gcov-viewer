@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { join } from 'path';
 import * as util from 'util';
-import { LineData, isGcovCompatible, runGcov } from './gcovInterface';
+import { GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
 
 let isShowingDecorations: boolean = false;
 
@@ -135,7 +135,7 @@ function resetLoadedCoverageData() {
 	loadedGcdaFiles = [];
 }
 
-let linesByFile: Map<string, LineData[]>;
+let linesByFile: Map<string, GcovLineData[]>;
 let demangledNames: Map<string, string>;
 let loadedGcdaFiles: string[];
 resetLoadedCoverageData();
@@ -155,7 +155,7 @@ async function reloadCoverageDataFromPaths(
 	}
 
 	progress.report({ increment: 100 * paths.length / totalPaths, message: `[${loadedGcdaFiles.length}/${totalPaths}] Parsing` });
-	const gcovDataArray = await runGcov(paths);
+	const gcovDataArray = await loadGcovData(paths);
 	for (const gcovData of gcovDataArray) {
 		for (const fileData of gcovData.files) {
 			const lineDataArray = linesByFile.get(fileData.file);
@@ -294,7 +294,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		return false;
 	}
 
-	const hitLines: Map<number, LineData[]> = new Map();
+	const hitLines: Map<number, GcovLineData[]> = new Map();
 
 	for (const lineData of linesDataOfFile) {
 		if (lineData.count > 0) {
@@ -317,7 +317,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 			new vscode.Position(lineIndex, 100000));
 
 		let totalCount = 0;
-		const lineDataByFunction: Map<string, LineData[]> = new Map();
+		const lineDataByFunction: Map<string, GcovLineData[]> = new Map();
 		for (const lineData of lineDataArray) {
 			totalCount += lineData.count;
 			const data = lineDataByFunction.get(lineData.function_name);
