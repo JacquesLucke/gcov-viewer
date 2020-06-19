@@ -3,19 +3,19 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as recursive_readdir from 'recursive-readdir';
 
-let is_showing_decorations: boolean = false;
+let isShowingDecorations: boolean = false;
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', show_decorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.hide', hide_decorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.toggle', toggle_decorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reload_coverage_data', reload_coverage_data));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.delete_coverage_data', delete_coverage_data));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.select_include_directory', select_include_directory));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.dump_paths_with_coverage_data', dump_paths_with_coverage_data));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', COMMAND_showDecorations));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.hide', COMMAND_hideDecorations));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.toggle', COMMAND_toggleDecorations));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reloadCoverageData', COMMAND_reloadCoverageData));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.deleteCoverageData', COMMAND_deleteCoverageData));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData));
 	vscode.window.onDidChangeVisibleTextEditors(async editors => {
-		if (is_showing_decorations) {
-			await show_decorations();
+		if (isShowingDecorations) {
+			await COMMAND_showDecorations();
 		}
 	});
 }
@@ -55,15 +55,15 @@ interface GcovJson {
 	data_file: string,
 };
 
-async function run_gcov(paths: string[]) {
+async function runGcov(paths: string[]) {
 	if (paths.length === 0) {
 		return [];
 	}
 
 	const config = vscode.workspace.getConfiguration('gcov_viewer', null);
-	const gcov_binary = config.get<string>('gcov_binary');
+	const gcovBinary = config.get<string>('gcovBinary');
 
-	let command = `${gcov_binary} --stdout --json-format`;
+	let command = `${gcovBinary} --stdout --json-format`;
 	for (const path of paths) {
 		command += ` "${path}"`;
 	}
@@ -74,9 +74,9 @@ async function run_gcov(paths: string[]) {
 				reject();
 				return;
 			}
-			const gcov_output = stdout.toString();
+			const gcovOutput = stdout.toString();
 			let output = [];
-			const parts = gcov_output.split('\n');
+			const parts = gcovOutput.split('\n');
 			for (const part of parts) {
 				if (part.length === 0) {
 					continue;
@@ -88,92 +88,92 @@ async function run_gcov(paths: string[]) {
 	});
 }
 
-function get_workspace_folder_config(workspaceFolder: vscode.WorkspaceFolder) {
+function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
 	return vscode.workspace.getConfiguration('gcov_viewer', workspaceFolder);
 }
 
-async function get_gcda_paths() {
+async function getGcdaPaths() {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return [];
 	}
 
-	let include_directories: string[] = [];
-	let workspace_folder_paths: string[] = [];
-	for (let workspace_folder of vscode.workspace.workspaceFolders) {
-		workspace_folder_paths.push(workspace_folder.uri.fsPath);
-		const config = get_workspace_folder_config(workspace_folder);
-		const dirs = config.get<string[]>('include_directories');
+	let includeDirectories: string[] = [];
+	let workspaceFolderPaths: string[] = [];
+	for (let workspaceFolder of vscode.workspace.workspaceFolders) {
+		workspaceFolderPaths.push(workspaceFolder.uri.fsPath);
+		const config = getWorkspaceFolderConfig(workspaceFolder);
+		const dirs = config.get<string[]>('includeDirectories');
 		if (dirs !== undefined) {
 			for (let dir of dirs) {
-				dir = dir.replace('${workspaceFolder}', workspace_folder.uri.fsPath);
-				include_directories.push(dir);
+				dir = dir.replace('${workspaceFolder}', workspaceFolder.uri.fsPath);
+				includeDirectories.push(dir);
 			}
 		}
 	}
 
-	if (include_directories.length === 0) {
-		include_directories.push(...workspace_folder_paths);
+	if (includeDirectories.length === 0) {
+		includeDirectories.push(...workspaceFolderPaths);
 	}
 
-	let gcda_paths: Set<string> = new Set();
-	for (const base_path of include_directories) {
-		const all_paths = await recursive_readdir(base_path);
-		for (const path of all_paths) {
+	let gcdaPaths: Set<string> = new Set();
+	for (const basePath of includeDirectories) {
+		const allPaths = await recursive_readdir(basePath);
+		for (const path of allPaths) {
 			if (path.endsWith('.gcda')) {
-				gcda_paths.add(path);
+				gcdaPaths.add(path);
 			}
 		}
 	}
 
-	return Array.from(gcda_paths);
+	return Array.from(gcdaPaths);
 }
 
-function reset_loaded_coverage_data() {
-	lines_by_file = new Map();
-	demangled_names = new Map();
-	loaded_gcda_files = [];
+function resetLoadedCoverageData() {
+	linesByFile = new Map();
+	demangledNames = new Map();
+	loadedGcdaFiles = [];
 }
 
-let lines_by_file: Map<string, LineData[]>;
-let demangled_names: Map<string, string>;
-let loaded_gcda_files: string[];
-reset_loaded_coverage_data();
+let linesByFile: Map<string, LineData[]>;
+let demangledNames: Map<string, string>;
+let loadedGcdaFiles: string[];
+resetLoadedCoverageData();
 
 
 
-async function reload_coverage_data_from_paths(
-	paths: string[], total_paths: number,
+async function reloadCoverageDataFromPaths(
+	paths: string[], totalPaths: number,
 	progress: vscode.Progress<{ message?: string; increment?: number }>,
-	cancellation_token: vscode.CancellationToken) {
+	token: vscode.CancellationToken) {
 
 	if (paths.length > 30) {
 		const middle = Math.floor(paths.length / 2);
-		await reload_coverage_data_from_paths(paths.slice(0, middle), total_paths, progress, cancellation_token);
-		await reload_coverage_data_from_paths(paths.slice(middle, paths.length), total_paths, progress, cancellation_token);
+		await reloadCoverageDataFromPaths(paths.slice(0, middle), totalPaths, progress, token);
+		await reloadCoverageDataFromPaths(paths.slice(middle, paths.length), totalPaths, progress, token);
 		return;
 	}
 
-	progress.report({ increment: 100 * paths.length / total_paths, message: `[${loaded_gcda_files.length}/${total_paths}]` });
-	const gcov_data_array = await run_gcov(paths);
-	for (const gcov_data of gcov_data_array) {
-		for (const file_data of gcov_data.files) {
-			let line_data_array = lines_by_file.get(file_data.file);
-			if (line_data_array === undefined) {
-				lines_by_file.set(file_data.file, file_data.lines);
+	progress.report({ increment: 100 * paths.length / totalPaths, message: `[${loadedGcdaFiles.length}/${totalPaths}]` });
+	const gcovDataArray = await runGcov(paths);
+	for (const gcovData of gcovDataArray) {
+		for (const fileData of gcovData.files) {
+			let lineDataArray = linesByFile.get(fileData.file);
+			if (lineDataArray === undefined) {
+				linesByFile.set(fileData.file, fileData.lines);
 			}
 			else {
-				line_data_array.push(...file_data.lines);
+				lineDataArray.push(...fileData.lines);
 			}
 
-			for (const function_data of file_data.functions) {
-				demangled_names.set(function_data.name, function_data.demangled_name);
+			for (const functionData of fileData.functions) {
+				demangledNames.set(functionData.name, functionData.demangled_name);
 			}
 		}
 	}
-	loaded_gcda_files.push(...paths);
+	loadedGcdaFiles.push(...paths);
 }
 
-function shuffle_array(a: any[]) {
+function shuffleArray(a: any[]) {
 	for (let i = a.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
 		[a[i], a[j]] = [a[j], a[i]];
@@ -181,26 +181,26 @@ function shuffle_array(a: any[]) {
 	return a;
 }
 
-async function reload_coverage_data() {
+async function COMMAND_reloadCoverageData() {
 	await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
 			cancellable: true,
 			title: 'Reload Coverage Data',
 		},
-		async (progress, cancellation_token) => {
-			reset_loaded_coverage_data();
+		async (progress, token) => {
+			resetLoadedCoverageData();
 			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
-			let gcda_paths = await get_gcda_paths();
-			shuffle_array(gcda_paths);
-			const async_amount = 20;
-			const chunk_size = gcda_paths.length / async_amount;
+			let gcdaPaths = await getGcdaPaths();
+			shuffleArray(gcdaPaths);
+			const asyncAmount = 20;
+			const chunkSize = gcdaPaths.length / asyncAmount;
 
 			let promises = [];
-			for (let i = 0; i < async_amount; i++) {
-				promises.push(reload_coverage_data_from_paths(
-					gcda_paths.slice(i * chunk_size, (i + 1) * chunk_size), gcda_paths.length, progress, cancellation_token));
+			for (let i = 0; i < asyncAmount; i++) {
+				promises.push(reloadCoverageDataFromPaths(
+					gcdaPaths.slice(i * chunkSize, (i + 1) * chunkSize), gcdaPaths.length, progress, token));
 			}
 			await Promise.all(promises);
 		}
@@ -209,120 +209,120 @@ async function reload_coverage_data() {
 
 }
 
-async function delete_coverage_data() {
-	reset_loaded_coverage_data();
-	await hide_decorations();
+async function COMMAND_deleteCoverageData() {
+	resetLoadedCoverageData();
+	await COMMAND_hideDecorations();
 
-	for (const path of await get_gcda_paths()) {
+	for (const path of await getGcdaPaths()) {
 		fs.unlinkSync(path);
 	}
 
 }
 
-async function toggle_decorations() {
-	if (is_showing_decorations) {
-		await hide_decorations();
+async function COMMAND_toggleDecorations() {
+	if (isShowingDecorations) {
+		await COMMAND_hideDecorations();
 	}
 	else {
-		await show_decorations();
+		await COMMAND_showDecorations();
 	}
 }
 
-async function hide_decorations() {
+async function COMMAND_hideDecorations() {
 	for (const editor of vscode.window.visibleTextEditors) {
 		editor.setDecorations(decorationType, []);
 	}
-	is_showing_decorations = false;
+	isShowingDecorations = false;
 }
 
-async function show_decorations() {
+async function COMMAND_showDecorations() {
 	let found_decorations = false;
 	for (const editor of vscode.window.visibleTextEditors) {
 		found_decorations = found_decorations || await decorateEditor(editor);
 	}
 	if (found_decorations) {
-		is_showing_decorations = true;
+		isShowingDecorations = true;
 	}
 }
 
-function get_lines_data_for_file(absolute_path: string) {
-	const lines_data_of_file = lines_by_file.get(absolute_path);
-	if (lines_data_of_file !== undefined) {
-		return lines_data_of_file;
+function getLinesDataForFile(absolutePath: string) {
+	const linesDataOfFile = linesByFile.get(absolutePath);
+	if (linesDataOfFile !== undefined) {
+		return linesDataOfFile;
 	}
-	for (const [stored_path, lines_data] of lines_by_file.entries()) {
-		if (absolute_path.endsWith(stored_path)) {
-			return lines_data;
+	for (const [storedPath, linesData] of linesByFile.entries()) {
+		if (absolutePath.endsWith(storedPath)) {
+			return linesData;
 		}
 	}
 	return undefined;
 }
 
-function is_coverage_data_loaded() {
-	return lines_by_file.size > 0;
+function isCoverageDataLoaded() {
+	return linesByFile.size > 0;
 }
 
 async function decorateEditor(editor: vscode.TextEditor) {
-	if (!is_coverage_data_loaded()) {
-		await reload_coverage_data();
+	if (!isCoverageDataLoaded()) {
+		await COMMAND_reloadCoverageData();
 	}
 
 	const path = editor.document.uri.fsPath;
-	const lines_data_of_file = get_lines_data_for_file(path);
-	if (lines_data_of_file === undefined) {
+	const linesDataOfFile = getLinesDataForFile(path);
+	if (linesDataOfFile === undefined) {
 		return false;
 	}
 
-	let hit_lines: Map<number, LineData[]> = new Map();
+	let hitLines: Map<number, LineData[]> = new Map();
 
-	for (const line_data of lines_data_of_file) {
-		if (line_data.count > 0) {
-			const key = line_data.line_number;
-			let data = hit_lines.get(key);
+	for (const lineData of linesDataOfFile) {
+		if (lineData.count > 0) {
+			const key = lineData.line_number;
+			let data = hitLines.get(key);
 			if (data === undefined) {
-				hit_lines.set(key, [line_data]);
+				hitLines.set(key, [lineData]);
 			}
 			else {
-				data.push(line_data);
+				data.push(lineData);
 			}
 		}
 	}
 
 	const decorations: vscode.DecorationOptions[] = [];
-	for (const [line_number, line_data_array] of hit_lines) {
-		const line_index = line_number - 1;
+	for (const [lineNumber, lineDataArray] of hitLines) {
+		const lineIndex = lineNumber - 1;
 		const range = new vscode.Range(
-			new vscode.Position(line_index, 0),
-			new vscode.Position(line_index, 100000));
+			new vscode.Position(lineIndex, 0),
+			new vscode.Position(lineIndex, 100000));
 
-		let total_count = 0;
-		let line_data_by_function: Map<string, LineData[]> = new Map();
-		for (const line_data of line_data_array) {
-			total_count += line_data.count;
-			let data = line_data_by_function.get(line_data.function_name);
+		let totalCount = 0;
+		let lineDataByFunction: Map<string, LineData[]> = new Map();
+		for (const lineData of lineDataArray) {
+			totalCount += lineData.count;
+			let data = lineDataByFunction.get(lineData.function_name);
 			if (data === undefined) {
-				line_data_by_function.set(line_data.function_name, [line_data]);
+				lineDataByFunction.set(lineData.function_name, [lineData]);
 			}
 			else {
-				data.push(line_data);
+				data.push(lineData);
 			}
 		}
 
 		let tooltip = '';
-		for (const [function_name, data_array] of line_data_by_function.entries()) {
+		for (const [functionName, dataArray] of lineDataByFunction.entries()) {
 			let count = 0;
-			for (const line_data of data_array) {
-				count += line_data.count;
+			for (const lineData of dataArray) {
+				count += lineData.count;
 			}
-			const demangled_name = demangled_names.get(function_name)!;
-			tooltip += `${count.toLocaleString()}x in \`${demangled_name}\`\n\n`;
+			const demangledName = demangledNames.get(functionName)!;
+			tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
 		}
 		const decoration: vscode.DecorationOptions = {
 			range: range,
 			hoverMessage: tooltip,
 			renderOptions: {
 				after: {
-					contentText: `   ${total_count.toLocaleString()}x`,
+					contentText: `   ${totalCount.toLocaleString()}x`,
 					color: new vscode.ThemeColor('editorCodeLens.foreground'),
 					fontStyle: 'italic',
 				},
@@ -335,7 +335,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	return decorations.length > 0;
 }
 
-async function select_include_directory() {
+async function COMMAND_selectIncludeDirectory() {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return;
 	}
@@ -356,25 +356,25 @@ async function select_include_directory() {
 	}
 
 	for (const workspaceFolder of vscode.workspace.workspaceFolders) {
-		const config = get_workspace_folder_config(workspaceFolder);
-		config.update('include_directories', paths);
+		const config = getWorkspaceFolderConfig(workspaceFolder);
+		config.update('includeDirectories', paths);
 	}
 }
 
-async function dump_paths_with_coverage_data() {
+async function COMMAND_dumpPathsWithCoverageData() {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return;
 	}
 
-	if (!is_coverage_data_loaded()) {
-		await reload_coverage_data();
+	if (!isCoverageDataLoaded()) {
+		await COMMAND_reloadCoverageData();
 	}
 
-	const paths = Array.from(lines_by_file.keys());
+	const paths = Array.from(linesByFile.keys());
 	paths.sort();
-	const dumped_paths = paths.join('\n');
+	const dumpedPaths = paths.join('\n');
 	const document = await vscode.workspace.openTextDocument({
-		content: dumped_paths,
+		content: dumpedPaths,
 	});
 	vscode.window.showTextDocument(document);
 }

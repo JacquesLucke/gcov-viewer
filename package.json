@@ -13,10 +13,10 @@
 		"onCommand:gcov-viewer.show",
 		"onCommand:gcov-viewer.hide",
 		"onCommand:gcov-viewer.toggle",
-		"onCommand:gcov-viewer.reload_coverage_data",
-		"onCommand:gcov-viewer.delete_coverage_data",
-		"onCommand:gcov-viewer.select_include_directory",
-		"onCommand:gcov-viewer.dump_paths_with_coverage_data"
+		"onCommand:gcov-viewer.reloadCoverageData",
+		"onCommand:gcov-viewer.deleteCoverageData",
+		"onCommand:gcov-viewer.selectIncludeDirectory",
+		"onCommand:gcov-viewer.dumpPathsWithCoverageData"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -37,22 +37,22 @@
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.reload_coverage_data",
+				"command": "gcov-viewer.reloadCoverageData",
 				"title": "Reload Coverage Data",
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.delete_coverage_data",
+				"command": "gcov-viewer.deleteCoverageData",
 				"title": "Delete Coverage Data",
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.select_include_directory",
+				"command": "gcov-viewer.selectIncludeDirectory",
 				"title": "Select Include Directory",
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.dump_paths_with_coverage_data",
+				"command": "gcov-viewer.dumpPathsWithCoverageData",
 				"title": "Dump Paths with Coverage Data",
 				"category": "Gcov Viewer"
 			}
@@ -61,13 +61,13 @@
 			{
 				"title": "Gcov Viewer",
 				"properties": {
-					"gcov_viewer.include_directories": {
+					"gcov_viewer.includeDirectories": {
 						"type": "array",
 						"title": "Include Directories",
 						"scope": "window",
 						"description": "Directories that will be included in the search for .gcda files."
 					},
-					"gcov_viewer.gcov_binary": {
+					"gcov_viewer.gcovBinary": {
 						"type": "string",
 						"title": "Gcov binary",
 						"scope": "machine",
