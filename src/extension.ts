@@ -7,13 +7,20 @@ import * as util from 'util';
 let isShowingDecorations: boolean = false;
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.show', COMMAND_showDecorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.hide', COMMAND_hideDecorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.toggle', COMMAND_toggleDecorations));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reloadCoverageData', COMMAND_reloadCoverageData));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.deleteGcdaFiles', COMMAND_deleteGcdaFiles));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData));
+	const commands: [string, any][] = [
+		['gcov-viewer.show', COMMAND_showDecorations],
+		['gcov-viewer.hide', COMMAND_hideDecorations],
+		['gcov-viewer.toggle', COMMAND_toggleDecorations],
+		['gcov-viewer.reloadCoverageData', COMMAND_reloadCoverageData],
+		['gcov-viewer.deleteGcdaFiles', COMMAND_deleteGcdaFiles],
+		['gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory],
+		['gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData],
+	];
+
+	for (const item of commands) {
+		context.subscriptions.push(vscode.commands.registerCommand(item[0], item[1]));
+	}
+
 	vscode.window.onDidChangeVisibleTextEditors(async editors => {
 		if (isShowingDecorations) {
 			await COMMAND_showDecorations();
