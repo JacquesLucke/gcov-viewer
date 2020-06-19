@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as util from 'util';
 import * as os from 'os';
-import { GcovData, GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
+import { GcovLineData, isGcovCompatible } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
 import { CoverageCache } from './coverageCache';
