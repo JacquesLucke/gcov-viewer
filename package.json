@@ -61,13 +61,13 @@
 			{
 				"title": "Gcov Viewer",
 				"properties": {
-					"gcov_viewer.includeDirectories": {
+					"gcovViewer.includeDirectories": {
 						"type": "array",
 						"title": "Include Directories",
 						"scope": "window",
 						"description": "Directories that will be included in the search for .gcda files."
 					},
-					"gcov_viewer.gcovBinary": {
+					"gcovViewer.gcovBinary": {
 						"type": "string",
 						"title": "Gcov binary",
 						"scope": "machine",

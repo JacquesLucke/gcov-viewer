@@ -31,7 +31,7 @@ export interface GcovData {
 };
 
 function getGcovBinary() {
-    const config = vscode.workspace.getConfiguration('gcov_viewer', null);
+    const config = vscode.workspace.getConfiguration('gcovViewer', null);
     const gcovBinary = config.get<string>('gcovBinary');
     return gcovBinary;
 }

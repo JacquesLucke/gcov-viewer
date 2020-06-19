@@ -48,7 +48,7 @@ const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
 });
 
 function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
-	return vscode.workspace.getConfiguration('gcov_viewer', workspaceFolder);
+	return vscode.workspace.getConfiguration('gcovViewer', workspaceFolder);
 }
 
 function getIncludeDirectories(): string[] {
