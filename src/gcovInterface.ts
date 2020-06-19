@@ -1,3 +1,6 @@
+import * as vscode from 'vscode';
+import * as child_process from 'child_process';
+
 export interface LineData {
     count: number,
     function_name: string,
@@ -26,3 +29,61 @@ export interface GcovData {
     current_working_directory: string,
     data_file: string,
 };
+
+function getGcovBinary() {
+    const config = vscode.workspace.getConfiguration('gcov_viewer', null);
+    const gcovBinary = config.get<string>('gcovBinary');
+    return gcovBinary;
+}
+
+export async function isGcovCompatible() {
+    const gcovBinary = getGcovBinary();
+    const command = `${gcovBinary} --help`;
+    return new Promise<boolean>((resolve, reject) => {
+        child_process.exec(command, (err, stdout, stderr) => {
+            if (err) {
+                vscode.window.showErrorMessage(`Error while trying to run gcov: ${err}`);
+                resolve(false);
+                return;
+            }
+            const gcovOutput = stdout.toString();
+            const supportsRequiredArgs = gcovOutput.includes('--json-format') && gcovOutput.includes('--stdout');
+            if (!supportsRequiredArgs) {
+                vscode.window.showErrorMessage(`The gcov version is not compatible. Please use at least version 9.`);
+            }
+            resolve(supportsRequiredArgs);
+        });
+    });
+}
+
+export async function runGcov(paths: string[]) {
+    if (paths.length === 0) {
+        return [];
+    }
+
+    const gcovBinary = getGcovBinary();
+
+    let command = `${gcovBinary} --stdout --json-format`;
+    for (const path of paths) {
+        command += ` "${path}"`;
+    }
+    return new Promise<GcovData[]>((resolve, reject) => {
+        child_process.exec(command, { maxBuffer: 256 * 1024 * 1024 }, (err, stdout, stderr) => {
+            if (err) {
+                console.error(`exec error: ${err}`);
+                reject();
+                return;
+            }
+            const gcovOutput = stdout.toString();
+            const output = [];
+            const parts = gcovOutput.split('\n');
+            for (const part of parts) {
+                if (part.length === 0) {
+                    continue;
+                }
+                output.push(JSON.parse(part));
+            }
+            resolve(output);
+        });
+    });
+}
