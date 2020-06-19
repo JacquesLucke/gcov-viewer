@@ -156,7 +156,7 @@ async function reloadCoverageDataFromPaths(
 	}
 }
 
-async function COMMAND_reloadGcdaFiles() {
+async function reloadGcdaFiles() {
 	if (!await isGcovCompatible()) {
 		return;
 	}
@@ -182,6 +182,11 @@ async function COMMAND_reloadGcdaFiles() {
 			await Promise.all(promises);
 		}
 	);
+}
+
+async function COMMAND_reloadGcdaFiles() {
+	await reloadGcdaFiles();
+	await COMMAND_showDecorations();
 }
 
 async function COMMAND_deleteGcdaFiles() {
@@ -365,7 +370,7 @@ function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorati
 
 async function decorateEditor(editor: vscode.TextEditor) {
 	if (!isCoverageDataLoaded()) {
-		await COMMAND_reloadGcdaFiles();
+		await reloadGcdaFiles();
 	}
 
 	const path = editor.document.uri.fsPath;
@@ -421,7 +426,7 @@ async function COMMAND_dumpPathsWithCoverageData() {
 	}
 
 	if (!isCoverageDataLoaded()) {
-		await COMMAND_reloadGcdaFiles();
+		await reloadGcdaFiles();
 	}
 
 	const paths = Array.from(linesByFile.keys());
