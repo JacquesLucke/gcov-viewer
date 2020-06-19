@@ -63,7 +63,7 @@ function getGcovBinary() {
 
 async function isGcovCompatible() {
 	const gcovBinary = getGcovBinary();
-	let command = `${gcovBinary} --help`;
+	const command = `${gcovBinary} --help`;
 	return new Promise<boolean>((resolve, reject) => {
 		child_process.exec(command, (err, stdout, stderr) => {
 			if (err) {
@@ -100,7 +100,7 @@ async function runGcov(paths: string[]) {
 				return;
 			}
 			const gcovOutput = stdout.toString();
-			let output = [];
+			const output = [];
 			const parts = gcovOutput.split('\n');
 			for (const part of parts) {
 				if (part.length === 0) {
@@ -122,9 +122,9 @@ async function getGcdaPaths() {
 		return [];
 	}
 
-	let includeDirectories: string[] = [];
-	let workspaceFolderPaths: string[] = [];
-	for (let workspaceFolder of vscode.workspace.workspaceFolders) {
+	const includeDirectories: string[] = [];
+	const workspaceFolderPaths: string[] = [];
+	for (const workspaceFolder of vscode.workspace.workspaceFolders) {
 		workspaceFolderPaths.push(workspaceFolder.uri.fsPath);
 		const config = getWorkspaceFolderConfig(workspaceFolder);
 		const dirs = config.get<string[]>('includeDirectories');
@@ -140,7 +140,7 @@ async function getGcdaPaths() {
 		includeDirectories.push(...workspaceFolderPaths);
 	}
 
-	let gcdaPaths: Set<string> = new Set();
+	const gcdaPaths: Set<string> = new Set();
 	for (const basePath of includeDirectories) {
 		const allPaths = await recursive_readdir(basePath);
 		for (const path of allPaths) {
@@ -182,7 +182,7 @@ async function reloadCoverageDataFromPaths(
 	const gcovDataArray = await runGcov(paths);
 	for (const gcovData of gcovDataArray) {
 		for (const fileData of gcovData.files) {
-			let lineDataArray = linesByFile.get(fileData.file);
+			const lineDataArray = linesByFile.get(fileData.file);
 			if (lineDataArray === undefined) {
 				linesByFile.set(fileData.file, fileData.lines);
 			}
@@ -220,12 +220,12 @@ async function COMMAND_reloadCoverageData() {
 			resetLoadedCoverageData();
 			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
-			let gcdaPaths = await getGcdaPaths();
+			const gcdaPaths = await getGcdaPaths();
 			shuffleArray(gcdaPaths);
 			const asyncAmount = 20;
 			const chunkSize = gcdaPaths.length / asyncAmount;
 
-			let promises = [];
+			const promises = [];
 			for (let i = 0; i < asyncAmount; i++) {
 				promises.push(reloadCoverageDataFromPaths(
 					gcdaPaths.slice(i * chunkSize, (i + 1) * chunkSize), gcdaPaths.length, progress, token));
@@ -301,12 +301,12 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		return false;
 	}
 
-	let hitLines: Map<number, LineData[]> = new Map();
+	const hitLines: Map<number, LineData[]> = new Map();
 
 	for (const lineData of linesDataOfFile) {
 		if (lineData.count > 0) {
 			const key = lineData.line_number;
-			let data = hitLines.get(key);
+			const data = hitLines.get(key);
 			if (data === undefined) {
 				hitLines.set(key, [lineData]);
 			}
@@ -324,10 +324,10 @@ async function decorateEditor(editor: vscode.TextEditor) {
 			new vscode.Position(lineIndex, 100000));
 
 		let totalCount = 0;
-		let lineDataByFunction: Map<string, LineData[]> = new Map();
+		const lineDataByFunction: Map<string, LineData[]> = new Map();
 		for (const lineData of lineDataArray) {
 			totalCount += lineData.count;
-			let data = lineDataByFunction.get(lineData.function_name);
+			const data = lineDataByFunction.get(lineData.function_name);
 			if (data === undefined) {
 				lineDataByFunction.set(lineData.function_name, [lineData]);
 			}
