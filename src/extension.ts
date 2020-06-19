@@ -55,13 +55,38 @@ interface GcovJson {
 	data_file: string,
 };
 
+function getGcovBinary() {
+	const config = vscode.workspace.getConfiguration('gcov_viewer', null);
+	const gcovBinary = config.get<string>('gcovBinary');
+	return gcovBinary;
+}
+
+async function isGcovCompatible() {
+	const gcovBinary = getGcovBinary();
+	let command = `${gcovBinary} --help`;
+	return new Promise<boolean>((resolve, reject) => {
+		child_process.exec(command, (err, stdout, stderr) => {
+			if (err) {
+				vscode.window.showErrorMessage(`Error while trying to run gcov: ${err}`);
+				resolve(false);
+				return;
+			}
+			const gcovOutput = stdout.toString();
+			const supportsRequiredArgs = gcovOutput.includes('--json-format') && gcovOutput.includes('--stdout');
+			if (!supportsRequiredArgs) {
+				vscode.window.showErrorMessage(`The gcov version is not compatible. Please use at least version 9.`);
+			}
+			resolve(supportsRequiredArgs);
+		});
+	});
+}
+
 async function runGcov(paths: string[]) {
 	if (paths.length === 0) {
 		return [];
 	}
 
-	const config = vscode.workspace.getConfiguration('gcov_viewer', null);
-	const gcovBinary = config.get<string>('gcovBinary');
+	const gcovBinary = getGcovBinary();
 
 	let command = `${gcovBinary} --stdout --json-format`;
 	for (const path of paths) {
@@ -182,6 +207,9 @@ function shuffleArray(a: any[]) {
 }
 
 async function COMMAND_reloadCoverageData() {
+	if (!await isGcovCompatible()) {
+		return;
+	}
 	await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
