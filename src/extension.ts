@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import { join } from 'path';
+import * as util from 'util';
 
 let isShowingDecorations: boolean = false;
 
@@ -10,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.hide', COMMAND_hideDecorations));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.toggle', COMMAND_toggleDecorations));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.reloadCoverageData', COMMAND_reloadCoverageData));
-	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.deleteCoverageData', COMMAND_deleteCoverageData));
+	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.deleteGcdaFiles', COMMAND_deleteGcdaFiles));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory));
 	context.subscriptions.push(vscode.commands.registerCommand('gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData));
 	vscode.window.onDidChangeVisibleTextEditors(async editors => {
@@ -171,6 +172,8 @@ async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationTo
 		return [];
 	}
 
+	progress?.report({ message: 'Searching .gcda files' });
+
 	const includeDirectories: string[] = [];
 	const workspaceFolderPaths: string[] = [];
 	for (const workspaceFolder of vscode.workspace.workspaceFolders) {
@@ -197,7 +200,7 @@ async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationTo
 				gcdaPaths.add(path);
 			}
 			counter++;
-			progress?.report({ message: `[${counter}] Scanning: ${path}` });
+			progress?.report({ message: `[${counter}] Scanning (found ${gcdaPaths.size}): ${path}` });
 		}, token);
 	}
 
@@ -269,7 +272,7 @@ async function COMMAND_reloadCoverageData() {
 		},
 		async (progress, token) => {
 			resetLoadedCoverageData();
-			progress.report({ increment: 0, message: 'Searching .gcda files' });
+			progress.report({ increment: 0 });
 
 			const gcdaPaths = await getGcdaPaths(progress, token);
 			shuffleArray(gcdaPaths);
@@ -288,13 +291,30 @@ async function COMMAND_reloadCoverageData() {
 
 }
 
-async function COMMAND_deleteCoverageData() {
+async function COMMAND_deleteGcdaFiles() {
 	resetLoadedCoverageData();
-	await COMMAND_hideDecorations();
 
-	for (const path of await getGcdaPaths()) {
-		fs.unlinkSync(path);
-	}
+	await vscode.window.withProgress(
+		{
+			location: vscode.ProgressLocation.Notification,
+			cancellable: true,
+			title: 'Delete .gcda files'
+		},
+		async (progress, token) => {
+			await COMMAND_hideDecorations();
+			progress.report({ increment: 0 });
+			const paths = await getGcdaPaths(progress, token);
+			const increment = 100 / paths.length;
+			for (const [i, path] of paths.entries()) {
+				if (token.isCancellationRequested) {
+					return;
+				}
+				await util.promisify(fs.unlink)(path);
+				progress.report({ increment: increment, message: `[${i}/${paths.length}] Delete` });
+			}
+		}
+	);
+
 
 }
 

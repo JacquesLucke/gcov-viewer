@@ -14,7 +14,7 @@
 		"onCommand:gcov-viewer.hide",
 		"onCommand:gcov-viewer.toggle",
 		"onCommand:gcov-viewer.reloadCoverageData",
-		"onCommand:gcov-viewer.deleteCoverageData",
+		"onCommand:gcov-viewer.deleteGcdaFiles",
 		"onCommand:gcov-viewer.selectIncludeDirectory",
 		"onCommand:gcov-viewer.dumpPathsWithCoverageData"
 	],
@@ -42,8 +42,8 @@
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.deleteCoverageData",
-				"title": "Delete Coverage Data",
+				"command": "gcov-viewer.deleteGcdaFiles",
+				"title": "Delete .gcda Files",
 				"category": "Gcov Viewer"
 			},
 			{
