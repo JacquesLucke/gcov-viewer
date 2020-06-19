@@ -30,10 +30,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { }
 
-const decorationType = vscode.window.createTextEditorDecorationType({
+const calledLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
-	backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
-	overviewRulerColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
+	backgroundColor: "rgba(50, 240, 50, 0.1)",
+	overviewRulerColor: "rgba(50, 240, 50, 0.1)",
 });
 
 interface LineData {
@@ -43,20 +43,22 @@ interface LineData {
 	unexecuted_block: boolean,
 };
 
-interface GcovJson {
+interface FunctionData {
+	blocks: number,
+	blocks_executed: number,
+	demangled_name: string,
+	start_column: number,
+	start_line: number,
+	end_column: number,
+	end_line: number,
+	execution_count: number,
+	name: string,
+};
+
+interface GcovData {
 	files: [{
 		file: string,
-		functions: {
-			blocks: number,
-			blocks_executed: number,
-			demangled_name: string,
-			start_column: number,
-			start_line: number,
-			end_column: number,
-			end_line: number,
-			execution_count: number,
-			name: string,
-		}[],
+		functions: FunctionData[],
 		lines: LineData[],
 	}],
 	current_working_directory: string,
@@ -100,7 +102,7 @@ async function runGcov(paths: string[]) {
 	for (const path of paths) {
 		command += ` "${path}"`;
 	}
-	return new Promise<GcovJson[]>((resolve, reject) => {
+	return new Promise<GcovData[]>((resolve, reject) => {
 		child_process.exec(command, { maxBuffer: 256 * 1024 * 1024 }, (err, stdout, stderr) => {
 			if (err) {
 				console.error(`exec error: ${err}`);
@@ -336,7 +338,7 @@ async function COMMAND_toggleDecorations() {
 
 async function COMMAND_hideDecorations() {
 	for (const editor of vscode.window.visibleTextEditors) {
-		editor.setDecorations(decorationType, []);
+		editor.setDecorations(calledLinesDecorationType, []);
 	}
 	isShowingDecorations = false;
 }
@@ -436,7 +438,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 		};
 		decorations.push(decoration);
 	}
-	editor.setDecorations(decorationType, decorations);
+	editor.setDecorations(calledLinesDecorationType, decorations);
 
 	return decorations.length > 0;
 }
