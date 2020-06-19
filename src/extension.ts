@@ -37,12 +37,14 @@ const calledLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
 	backgroundColor: "rgba(50, 240, 50, 0.1)",
 	overviewRulerColor: "rgba(50, 240, 50, 0.1)",
+	rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
 });
 
 const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
 	backgroundColor: "rgba(240, 50, 50, 0.1)",
 	overviewRulerColor: "rgba(240, 50, 50, 0.1)",
+	rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
 });
 
 function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
