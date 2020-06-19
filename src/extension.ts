@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
-import * as recursive_readdir from 'recursive-readdir';
+import { join } from 'path';
 
 let isShowingDecorations: boolean = false;
 
@@ -117,7 +117,56 @@ function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
 	return vscode.workspace.getConfiguration('gcov_viewer', workspaceFolder);
 }
 
-async function getGcdaPaths() {
+function readdirOrEmpty(path: string) {
+	return new Promise<string[]>(resolve => {
+		fs.readdir(path, (err, paths) => {
+			if (err) {
+				resolve([]);
+			}
+			else {
+				resolve(paths);
+			}
+		});
+	});
+}
+
+function statsOrUndefined(path: string) {
+	return new Promise<undefined | fs.Stats>(resolve => {
+		fs.stat(path, (err, stats) => {
+			if (err) {
+				console.error(err);
+				resolve(undefined);
+			}
+			else {
+				resolve(stats);
+			}
+		});
+	});
+}
+
+async function recursiveReaddir(basePath: string, callback: (path: string) => void, token?: vscode.CancellationToken) {
+	let fileNames: string[] = await readdirOrEmpty(basePath);
+
+	for (const fileName of fileNames) {
+		const path = join(basePath, fileName);
+		const stats = await statsOrUndefined(path);
+		if (stats === undefined) {
+			continue;
+		}
+		if (stats.isFile()) {
+			if (token?.isCancellationRequested) {
+				return;
+			}
+			callback(path);
+		}
+		else {
+			await recursiveReaddir(path, callback, token);
+		}
+	}
+
+}
+
+async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return [];
 	}
@@ -140,14 +189,16 @@ async function getGcdaPaths() {
 		includeDirectories.push(...workspaceFolderPaths);
 	}
 
+	let counter = 0;
 	const gcdaPaths: Set<string> = new Set();
 	for (const basePath of includeDirectories) {
-		const allPaths = await recursive_readdir(basePath);
-		for (const path of allPaths) {
+		await recursiveReaddir(basePath, path => {
 			if (path.endsWith('.gcda')) {
 				gcdaPaths.add(path);
 			}
-		}
+			counter++;
+			progress?.report({ message: `[${counter}] Scanning: ${path}` });
+		}, token);
 	}
 
 	return Array.from(gcdaPaths);
@@ -164,11 +215,11 @@ let demangledNames: Map<string, string>;
 let loadedGcdaFiles: string[];
 resetLoadedCoverageData();
 
-
+type MyProgress = vscode.Progress<{ message?: string; increment?: number }>;
 
 async function reloadCoverageDataFromPaths(
 	paths: string[], totalPaths: number,
-	progress: vscode.Progress<{ message?: string; increment?: number }>,
+	progress: MyProgress,
 	token: vscode.CancellationToken) {
 
 	if (paths.length > 30) {
@@ -178,7 +229,7 @@ async function reloadCoverageDataFromPaths(
 		return;
 	}
 
-	progress.report({ increment: 100 * paths.length / totalPaths, message: `[${loadedGcdaFiles.length}/${totalPaths}]` });
+	progress.report({ increment: 100 * paths.length / totalPaths, message: `[${loadedGcdaFiles.length}/${totalPaths}] Parsing` });
 	const gcovDataArray = await runGcov(paths);
 	for (const gcovData of gcovDataArray) {
 		for (const fileData of gcovData.files) {
@@ -220,7 +271,7 @@ async function COMMAND_reloadCoverageData() {
 			resetLoadedCoverageData();
 			progress.report({ increment: 0, message: 'Searching .gcda files' });
 
-			const gcdaPaths = await getGcdaPaths();
+			const gcdaPaths = await getGcdaPaths(progress, token);
 			shuffleArray(gcdaPaths);
 			const asyncAmount = 20;
 			const chunkSize = gcdaPaths.length / asyncAmount;
@@ -405,4 +456,6 @@ async function COMMAND_dumpPathsWithCoverageData() {
 		content: dumpedPaths,
 	});
 	vscode.window.showTextDocument(document);
+
+
 }
