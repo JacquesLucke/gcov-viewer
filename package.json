@@ -24,7 +24,8 @@
 		"onCommand:gcov-viewer.reloadGcdaFiles",
 		"onCommand:gcov-viewer.deleteGcdaFiles",
 		"onCommand:gcov-viewer.selectIncludeDirectory",
-		"onCommand:gcov-viewer.dumpPathsWithCoverageData"
+		"onCommand:gcov-viewer.dumpPathsWithCoverageData",
+		"onCommand:gcov-viewer.viewFunctionsByCallCount"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -62,6 +63,11 @@
 			{
 				"command": "gcov-viewer.dumpPathsWithCoverageData",
 				"title": "Dump Paths with Coverage Data",
+				"category": "Gcov Viewer"
+			},
+			{
+				"command": "gcov-viewer.viewFunctionsByCallCount",
+				"title": "View Functions by Call Count",
 				"category": "Gcov Viewer"
 			}
 		],

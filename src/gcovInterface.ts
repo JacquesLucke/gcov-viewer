@@ -20,12 +20,14 @@ export interface GcovFunctionData {
     name: string,
 };
 
+export interface GcovFileData {
+    file: string,
+    lines: GcovLineData[],
+    functions: GcovFunctionData[],
+};
+
 export interface GcovData {
-    files: [{
-        file: string,
-        functions: GcovFunctionData[],
-        lines: GcovLineData[],
-    }],
+    files: GcovFileData[],
     current_working_directory: string,
     data_file: string,
 };

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as util from 'util';
 import * as os from 'os';
-import { GcovLineData, isGcovCompatible } from './gcovInterface';
+import { GcovLineData, isGcovCompatible, GcovFunctionData } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
 import { CoverageCache } from './coverageCache';
@@ -19,6 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
 		['gcov-viewer.deleteGcdaFiles', COMMAND_deleteGcdaFiles],
 		['gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory],
 		['gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData],
+		['gcov-viewer.viewFunctionsByCallCount', COMMAND_viewFunctionsByCallCount],
 	];
 
 	for (const item of commands) {
@@ -222,21 +223,21 @@ async function COMMAND_showDecorations() {
 	await showDecorations();
 }
 
-function getLinesDataForFile(absolutePath: string) {
-	const linesDataOfFile = coverageCache.linesByFile.get(absolutePath);
-	if (linesDataOfFile !== undefined) {
-		return linesDataOfFile;
+function getDataForFile(absolutePath: string) {
+	const dataOfFile = coverageCache.dataByFile.get(absolutePath);
+	if (dataOfFile !== undefined) {
+		return dataOfFile;
 	}
-	for (const [storedPath, linesData] of coverageCache.linesByFile.entries()) {
+	for (const [storedPath, dataOfFile] of coverageCache.dataByFile.entries()) {
 		if (absolutePath.endsWith(storedPath)) {
-			return linesData;
+			return dataOfFile;
 		}
 	}
 	return undefined;
 }
 
 function isCoverageDataLoaded() {
-	return coverageCache.linesByFile.size > 0;
+	return coverageCache.dataByFile.size > 0;
 }
 
 function groupDataPerLine(lines: GcovLineData[]): Map<number, GcovLineData[]> {
@@ -351,7 +352,7 @@ function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorati
 
 async function decorateEditor(editor: vscode.TextEditor) {
 	const path = editor.document.uri.fsPath;
-	const linesDataOfFile = getLinesDataForFile(path);
+	const linesDataOfFile = getDataForFile(path)?.lines;
 	if (linesDataOfFile === undefined) {
 		return false;
 	}
@@ -406,11 +407,64 @@ async function COMMAND_dumpPathsWithCoverageData() {
 		await reloadGcdaFiles();
 	}
 
-	const paths = Array.from(coverageCache.linesByFile.keys());
+	const paths = Array.from(coverageCache.dataByFile.keys());
 	paths.sort();
 	const dumpedPaths = paths.join('\n');
 	const document = await vscode.workspace.openTextDocument({
 		content: dumpedPaths,
 	});
 	vscode.window.showTextDocument(document);
+}
+
+async function COMMAND_viewFunctionsByCallCount() {
+	const editor = vscode.window.activeTextEditor;
+	if (editor === undefined) {
+		return;
+	}
+
+	if (!isCoverageDataLoaded()) {
+		await reloadGcdaFiles();
+	}
+
+	const functionsDataOfFile = getDataForFile(editor.document.uri.fsPath)?.functions;
+	if (functionsDataOfFile === undefined) {
+		return;
+	}
+	const dataPerFunction: Map<string, GcovFunctionData[]> = new Map();
+	for (const functionData of functionsDataOfFile) {
+		const data = dataPerFunction.get(functionData.demangled_name);
+		if (data === undefined) {
+			dataPerFunction.set(functionData.demangled_name, [functionData]);
+		}
+		else {
+			data.push(functionData);
+		}
+	}
+
+	const functionNamesWithCallCount: [string, number][] = [];
+
+	for (const [functionName, functionDataArray] of dataPerFunction) {
+		let totalCalls = 0;
+		for (const functionData of functionDataArray) {
+			totalCalls += functionData.execution_count;
+		}
+		functionNamesWithCallCount.push([functionName, totalCalls]);
+	}
+	functionNamesWithCallCount.sort((a, b) => b[1] - a[1]);
+
+	const quickPick = vscode.window.createQuickPick();
+	quickPick.items = functionNamesWithCallCount.map(([functionName, callCount]) => {
+		return { label: `${callCount}x  ${functionName}`, functionName: functionName };
+	});
+	quickPick.onDidChangeSelection(selection => {
+		quickPick.hide();
+	});
+	quickPick.onDidChangeActive((items: any[]) => {
+		const functionDataArray = dataPerFunction.get(items[0].functionName)!;
+		const startLineIndex = functionDataArray[0].start_line - 1;
+		const endLineIndex = functionDataArray[0].end_line - 1;
+		editor.revealRange(new vscode.Range(startLineIndex, 0, endLineIndex, 0));
+	});
+	quickPick.onDidHide(() => quickPick.dispose());
+	quickPick.show();
 }

@@ -1,8 +1,8 @@
-import { GcovLineData, GcovData } from './gcovInterface';
+import { GcovLineData, GcovData, GcovFunctionData, GcovFileData } from './gcovInterface';
 import { loadGcovData } from './gcovInterface';
 
 export class CoverageCache {
-    linesByFile: Map<string, GcovLineData[]> = new Map();
+    dataByFile: Map<string, GcovFileData> = new Map();
     demangledNames: Map<string, string> = new Map();
     loadedGcdaFiles: string[] = [];
 
@@ -11,12 +11,17 @@ export class CoverageCache {
 
         for (const gcovData of gcovDataArray) {
             for (const fileData of gcovData.files) {
-                const lineDataArray = this.linesByFile.get(fileData.file);
-                if (lineDataArray === undefined) {
-                    this.linesByFile.set(fileData.file, fileData.lines);
+                const cachedFileData = this.dataByFile.get(fileData.file);
+                if (cachedFileData === undefined) {
+                    this.dataByFile.set(fileData.file, {
+                        file: fileData.file,
+                        lines: [...fileData.lines],
+                        functions: [...fileData.functions],
+                    });
                 }
                 else {
-                    lineDataArray.push(...fileData.lines);
+                    cachedFileData.lines.push(...fileData.lines);
+                    cachedFileData.functions.push(...fileData.functions);
                 }
 
                 for (const functionData of fileData.functions) {
