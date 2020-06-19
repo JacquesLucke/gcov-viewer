@@ -13,7 +13,7 @@
 		"onCommand:gcov-viewer.show",
 		"onCommand:gcov-viewer.hide",
 		"onCommand:gcov-viewer.toggle",
-		"onCommand:gcov-viewer.reloadCoverageData",
+		"onCommand:gcov-viewer.reloadGcdaFiles",
 		"onCommand:gcov-viewer.deleteGcdaFiles",
 		"onCommand:gcov-viewer.selectIncludeDirectory",
 		"onCommand:gcov-viewer.dumpPathsWithCoverageData"
@@ -37,8 +37,8 @@
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.reloadCoverageData",
-				"title": "Reload Coverage Data",
+				"command": "gcov-viewer.reloadGcdaFiles",
+				"title": "Reload .gcda Files",
 				"category": "Gcov Viewer"
 			},
 			{

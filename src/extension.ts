@@ -11,7 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 		['gcov-viewer.show', COMMAND_showDecorations],
 		['gcov-viewer.hide', COMMAND_hideDecorations],
 		['gcov-viewer.toggle', COMMAND_toggleDecorations],
-		['gcov-viewer.reloadCoverageData', COMMAND_reloadCoverageData],
+		['gcov-viewer.reloadGcdaFiles', COMMAND_reloadGcdaFiles],
 		['gcov-viewer.deleteGcdaFiles', COMMAND_deleteGcdaFiles],
 		['gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory],
 		['gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData],
@@ -136,7 +136,7 @@ function shuffleArray(a: any[]) {
 	return a;
 }
 
-async function COMMAND_reloadCoverageData() {
+async function COMMAND_reloadGcdaFiles() {
 	if (!await isGcovCompatible()) {
 		return;
 	}
@@ -239,7 +239,7 @@ function isCoverageDataLoaded() {
 
 async function decorateEditor(editor: vscode.TextEditor) {
 	if (!isCoverageDataLoaded()) {
-		await COMMAND_reloadCoverageData();
+		await COMMAND_reloadGcdaFiles();
 	}
 
 	const path = editor.document.uri.fsPath;
@@ -342,7 +342,7 @@ async function COMMAND_dumpPathsWithCoverageData() {
 	}
 
 	if (!isCoverageDataLoaded()) {
-		await COMMAND_reloadCoverageData();
+		await COMMAND_reloadGcdaFiles();
 	}
 
 	const paths = Array.from(linesByFile.keys());
