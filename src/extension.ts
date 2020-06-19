@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as util from 'util';
+import * as os from 'os';
 import { GcovLineData, isGcovCompatible, loadGcovData } from './gcovInterface';
 import { recursiveReaddir } from './fsScanning';
 
@@ -136,6 +137,15 @@ function shuffleArray(a: any[]) {
 	return a;
 }
 
+function splitArrayInChunks(array: any[], chunkAmount: number) {
+	const chunkSize = Math.ceil(array.length / chunkAmount);
+	const chunks = [];
+	for (let i = 0; i < chunkAmount; i++) {
+		chunks.push(array.slice(i * chunkSize, (i + 1) * chunkSize));
+	}
+	return chunks;
+}
+
 async function COMMAND_reloadGcdaFiles() {
 	if (!await isGcovCompatible()) {
 		return;
@@ -152,13 +162,12 @@ async function COMMAND_reloadGcdaFiles() {
 
 			const gcdaPaths = await getGcdaPaths(progress, token);
 			shuffleArray(gcdaPaths);
-			const asyncAmount = 20;
-			const chunkSize = gcdaPaths.length / asyncAmount;
+			const pathChunks = splitArrayInChunks(gcdaPaths, os.cpus().length);
 
 			const promises = [];
-			for (let i = 0; i < asyncAmount; i++) {
+			for (const pathChunk of pathChunks) {
 				promises.push(reloadCoverageDataFromPaths(
-					gcdaPaths.slice(i * chunkSize, (i + 1) * chunkSize), gcdaPaths.length, progress, token));
+					pathChunk, gcdaPaths.length, progress, token));
 			}
 			await Promise.all(promises);
 		}
