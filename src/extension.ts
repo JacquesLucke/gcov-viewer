@@ -240,24 +240,15 @@ function isCoverageDataLoaded() {
 	return coverageCache.dataByFile.size > 0;
 }
 
-function groupDataPerLine(lines: GcovLineData[]): Map<number, GcovLineData[]> {
-	const dataPerLine: Map<number, GcovLineData[]> = new Map();
-	for (const lineData of lines) {
-		if (dataPerLine.get(lineData.line_number)?.push(lineData) === undefined) {
-			dataPerLine.set(lineData.line_number, [lineData]);
+function groupData<T, Key>(values: T[], getKey: (value: T) => Key): Map<Key, T[]> {
+	const map: Map<Key, T[]> = new Map();
+	for (const value of values) {
+		const key: Key = getKey(value);
+		if (map.get(key)?.push(value) === undefined) {
+			map.set(key, [value]);
 		}
 	}
-	return dataPerLine;
-}
-
-function groupDataPerFunction(lines: GcovLineData[]): Map<string, GcovLineData[]> {
-	const dataPerFunction: Map<string, GcovLineData[]> = new Map();
-	for (const lineData of lines) {
-		if (dataPerFunction.get(lineData.function_name)?.push(lineData) === undefined) {
-			dataPerFunction.set(lineData.function_name, [lineData]);
-		}
-	}
-	return dataPerFunction;
+	return map;
 }
 
 function sumTotalCalls(lines: GcovLineData[]): number {
@@ -298,7 +289,7 @@ function createMissedLineDecoration(range: vscode.Range) {
 }
 
 function createExecutedLineDecoration(range: vscode.Range, totalCalls: number, lineDataArray: GcovLineData[]) {
-	const lineDataByFunction: Map<string, GcovLineData[]> = groupDataPerFunction(lineDataArray);
+	const lineDataByFunction = groupData(lineDataArray, x => x.function_name);
 	let tooltip = createTooltipForExecutedLine(lineDataByFunction);
 	const decoration: vscode.DecorationOptions = {
 		range: range,
@@ -322,7 +313,7 @@ class LineDecorationsGroup {
 function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorationsGroup {
 	const decorations = new LineDecorationsGroup();
 
-	const hitLines: Map<number, GcovLineData[]> = groupDataPerLine(linesDataOfFile);
+	const hitLines = groupData(linesDataOfFile, x => x.line_number);
 
 	for (const lineDataArray of hitLines.values()) {
 		const lineIndex = lineDataArray[0].line_number - 1;
@@ -419,12 +410,7 @@ async function COMMAND_viewFunctionsByCallCount() {
 	if (functionsDataOfFile === undefined) {
 		return;
 	}
-	const dataPerFunction: Map<string, GcovFunctionData[]> = new Map();
-	for (const functionData of functionsDataOfFile) {
-		if (dataPerFunction.get(functionData.demangled_name)?.push(functionData) === undefined) {
-			dataPerFunction.set(functionData.demangled_name, [functionData]);
-		}
-	}
+	const dataPerFunction: Map<string, GcovFunctionData[]> = groupData(functionsDataOfFile, x => x.demangled_name);
 
 	const functionNamesWithCallCount: [string, number][] = [];
 
