@@ -145,6 +145,20 @@ async function reloadGcdaFiles() {
 			progress.report({ increment: 0 });
 
 			const gcdaPaths = await getGcdaPaths(progress, token);
+			if (gcdaPaths.length === 0) {
+				vscode.window.showInformationMessage(
+					'Cannot find any .gcda files. You have to run the program first. '
+					+ 'Furthermore, you may have to specify the folder where the .gcda files are located. '
+					+ 'This can be done using the "Gcov Viewer: Select Include Directory" command. '
+					+ 'They are usually located next to the .o files.',
+					'Select Include Directory').then(value => {
+						if (value === 'Select Include Directory') {
+							COMMAND_selectIncludeDirectory();
+						}
+					});
+				return;
+			}
+
 			shuffleArray(gcdaPaths);
 			const pathChunks = splitArrayInChunks(gcdaPaths, os.cpus().length);
 
