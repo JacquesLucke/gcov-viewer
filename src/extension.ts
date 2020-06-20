@@ -251,12 +251,12 @@ function groupData<T, Key>(values: T[], getKey: (value: T) => Key): Map<Key, T[]
 	return map;
 }
 
+function computeSum<T>(values: T[], getSummand: (value: T) => number) {
+	return values.reduce((sum, value) => sum + getSummand(value), 0);
+}
+
 function sumTotalCalls(lines: GcovLineData[]): number {
-	let sum = 0;
-	for (const lineData of lines) {
-		sum += lineData.count;
-	}
-	return sum;
+	return computeSum(lines, x => x.count);
 }
 
 function createRangeForLine(lineIndex: number) {
@@ -268,10 +268,7 @@ function createRangeForLine(lineIndex: number) {
 function createTooltipForExecutedLine(lineDataByFunction: Map<string, GcovLineData[]>) {
 	let tooltip = '';
 	for (const [functionName, dataArray] of lineDataByFunction.entries()) {
-		let count = 0;
-		for (const lineData of dataArray) {
-			count += lineData.count;
-		}
+		let count = computeSum(dataArray, x => x.count);
 		if (count > 0) {
 			const demangledName = coverageCache.demangledNames.get(functionName)!;
 			tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
@@ -415,10 +412,7 @@ async function COMMAND_viewFunctionsByCallCount() {
 	const functionNamesWithCallCount: [string, number][] = [];
 
 	for (const [functionName, functionDataArray] of dataPerFunction) {
-		let totalCalls = 0;
-		for (const functionData of functionDataArray) {
-			totalCalls += functionData.execution_count;
-		}
+		let totalCalls = computeSum(functionDataArray, x => x.execution_count);
 		functionNamesWithCallCount.push([functionName, totalCalls]);
 	}
 	functionNamesWithCallCount.sort((a, b) => b[1] - a[1]);
