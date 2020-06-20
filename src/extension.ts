@@ -242,30 +242,19 @@ function isCoverageDataLoaded() {
 
 function groupDataPerLine(lines: GcovLineData[]): Map<number, GcovLineData[]> {
 	const dataPerLine: Map<number, GcovLineData[]> = new Map();
-
 	for (const lineData of lines) {
-		const key = lineData.line_number;
-		const data = dataPerLine.get(key);
-		if (data === undefined) {
-			dataPerLine.set(key, [lineData]);
-		}
-		else {
-			data.push(lineData);
+		if (dataPerLine.get(lineData.line_number)?.push(lineData) === undefined) {
+			dataPerLine.set(lineData.line_number, [lineData]);
 		}
 	}
-
 	return dataPerLine;
 }
 
 function groupDataPerFunction(lines: GcovLineData[]): Map<string, GcovLineData[]> {
 	const dataPerFunction: Map<string, GcovLineData[]> = new Map();
 	for (const lineData of lines) {
-		const data = dataPerFunction.get(lineData.function_name);
-		if (data === undefined) {
+		if (dataPerFunction.get(lineData.function_name)?.push(lineData) === undefined) {
 			dataPerFunction.set(lineData.function_name, [lineData]);
-		}
-		else {
-			data.push(lineData);
 		}
 	}
 	return dataPerFunction;
@@ -432,12 +421,8 @@ async function COMMAND_viewFunctionsByCallCount() {
 	}
 	const dataPerFunction: Map<string, GcovFunctionData[]> = new Map();
 	for (const functionData of functionsDataOfFile) {
-		const data = dataPerFunction.get(functionData.demangled_name);
-		if (data === undefined) {
+		if (dataPerFunction.get(functionData.demangled_name)?.push(functionData) === undefined) {
 			dataPerFunction.set(functionData.demangled_name, [functionData]);
-		}
-		else {
-			data.push(functionData);
 		}
 	}
 
