@@ -16,3 +16,8 @@ This vscode extension uses the `gcov` program to parse these additional files an
 
 ![image](images/code_highlight_example.png)
 ![image](images/template_example.png)
+
+## Known Issues
+
+- Sometimes lines are counted more than once when they do more than one thing. That might be confusing in some cases. Usually it is quite easy to get the correct number by looking at neighboring lines.
+- When the `gcovViewer.highlightMissedLines` is turned on, some missed lines might not be marked as such.
