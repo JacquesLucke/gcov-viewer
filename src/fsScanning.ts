@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { assert } from 'console';
 
 function readdirOrEmpty(path: string) {
     return new Promise<string[]>(resolve => {
@@ -48,4 +49,24 @@ export async function recursiveReaddir(basePath: string, callback: (path: string
             await recursiveReaddir(path, callback, token);
         }
     }
+}
+
+export async function getNeighboringDirectories(currentPath: string) {
+    const parentPath = dirname(currentPath);
+    let fileNames = await readdirOrEmpty(parentPath);
+    assert(fileNames.length >= 1);
+
+    const neighboringDirectories = [];
+    for (const fileName of fileNames) {
+        const path = join(parentPath, fileName);
+        const stats = await statsOrUndefined(path);
+        if (stats === undefined) {
+            continue;
+        }
+        if (stats.isDirectory()) {
+            neighboringDirectories.push(path);
+        }
+    }
+
+    return neighboringDirectories;
 }

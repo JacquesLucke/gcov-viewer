@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as util from 'util';
 import * as os from 'os';
 import { GcovLineData, isGcovCompatible, GcovFunctionData } from './gcovInterface';
-import { recursiveReaddir } from './fsScanning';
+import { recursiveReaddir, getNeighboringDirectories } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
 import { CoverageCache } from './coverageCache';
 
@@ -151,9 +151,12 @@ async function reloadGcdaFiles() {
 					+ 'Furthermore, you may have to specify the folder where the .gcda files are located. '
 					+ 'This can be done using the "Gcov Viewer: Select Include Directory" command. '
 					+ 'They are usually located next to the .o files.',
-					'Select Include Directory').then(value => {
+					'Select Include Directory', 'Use Neighboring Directory').then(value => {
 						if (value === 'Select Include Directory') {
 							COMMAND_selectIncludeDirectory();
+						}
+						else if (value === 'Use Neighboring Directory') {
+							selectNeighboringIncludeDirectory();
 						}
 					});
 				return;
@@ -389,6 +392,26 @@ async function COMMAND_selectIncludeDirectory() {
 	}
 }
 
+async function selectNeighboringIncludeDirectory() {
+	if (vscode.workspace.workspaceFolders === undefined) {
+		return;
+	}
+	const workspaceFolder = vscode.workspace.workspaceFolders[0];
+	const neighboringDirectories = await getNeighboringDirectories(workspaceFolder.uri.fsPath);
+
+	const quickPick = vscode.window.createQuickPick();
+	quickPick.items = neighboringDirectories.map(path => {
+		return { label: path };
+	});
+	quickPick.onDidHide(() => quickPick.dispose());
+	quickPick.onDidChangeSelection(selection => {
+		quickPick.hide();
+		const config = getWorkspaceFolderConfig(workspaceFolder);
+		config.update('includeDirectories', [selection[0].label]);
+	});
+	quickPick.show();
+}
+
 async function COMMAND_dumpPathsWithCoverageData() {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return;
@@ -430,9 +453,8 @@ async function COMMAND_viewFunctionsByCallCount() {
 	quickPick.items = functionNamesWithCallCount.map(([functionName, callCount]) => {
 		return { label: `${callCount}x  ${functionName}`, functionName: functionName };
 	});
-	quickPick.onDidChangeSelection(selection => {
-		quickPick.hide();
-	});
+	quickPick.onDidHide(() => quickPick.dispose());
+	quickPick.onDidChangeSelection(() => quickPick.hide());
 	quickPick.onDidChangeActive((items: any[]) => {
 		const functionDataArray = dataPerFunction.get(items[0].functionName)!;
 		const startLineIndex = functionDataArray[0].start_line - 1;
@@ -440,6 +462,5 @@ async function COMMAND_viewFunctionsByCallCount() {
 		editor.selection = new vscode.Selection(new vscode.Position(startLineIndex, 0), new vscode.Position(startLineIndex, 0));
 		editor.revealRange(new vscode.Range(startLineIndex, 0, endLineIndex, 0), vscode.TextEditorRevealType.InCenter);
 	});
-	quickPick.onDidHide(() => quickPick.dispose());
 	quickPick.show();
 }
