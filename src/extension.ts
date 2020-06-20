@@ -448,7 +448,8 @@ async function COMMAND_viewFunctionsByCallCount() {
 		const functionDataArray = dataPerFunction.get(items[0].functionName)!;
 		const startLineIndex = functionDataArray[0].start_line - 1;
 		const endLineIndex = functionDataArray[0].end_line - 1;
-		editor.revealRange(new vscode.Range(startLineIndex, 0, endLineIndex, 0));
+		editor.selection = new vscode.Selection(new vscode.Position(startLineIndex, 0), new vscode.Position(startLineIndex, 0));
+		editor.revealRange(new vscode.Range(startLineIndex, 0, endLineIndex, 0), vscode.TextEditorRevealType.InCenter);
 	});
 	quickPick.onDidHide(() => quickPick.dispose());
 	quickPick.show();
