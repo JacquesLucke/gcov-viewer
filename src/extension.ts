@@ -408,13 +408,8 @@ async function COMMAND_viewFunctionsByCallCount() {
 		return;
 	}
 	const dataPerFunction: Map<string, GcovFunctionData[]> = groupData(functionsDataOfFile, x => x.demangled_name);
-
-	const functionNamesWithCallCount: [string, number][] = [];
-
-	for (const [functionName, functionDataArray] of dataPerFunction) {
-		let totalCalls = computeSum(functionDataArray, x => x.execution_count);
-		functionNamesWithCallCount.push([functionName, totalCalls]);
-	}
+	const functionNamesWithCallCount: [string, number][] = Array.from(dataPerFunction.entries()).map((
+		[functionName, functionDataArray]) => [functionName, computeSum(functionDataArray, x => x.execution_count)]);
 	functionNamesWithCallCount.sort((a, b) => b[1] - a[1]);
 
 	const quickPick = vscode.window.createQuickPick();
