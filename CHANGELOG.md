@@ -1,8 +1,10 @@
-## Unreleased
+## 0.2.0 - 2020-06-21
 
 ### Changed
 
 - Renamed "include directories" to "build directories".
+- Improved error message when no .gcda files have been found.
+- Make gcc version requirement a bit more clear in readme.
 
 ## 0.1.0 - 2020-06-20
 
