@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as util from 'util';
 import * as os from 'os';
 import { GcovLineData, isGcovCompatible, GcovFunctionData } from './gcovInterface';
-import { recursiveReaddir, getNeighboringDirectories } from './fsScanning';
+import { recursiveReaddir } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
 import { CoverageCache } from './coverageCache';
 
@@ -17,7 +17,7 @@ export function activate(context: vscode.ExtensionContext) {
 		['gcov-viewer.toggle', COMMAND_toggleDecorations],
 		['gcov-viewer.reloadGcdaFiles', COMMAND_reloadGcdaFiles],
 		['gcov-viewer.deleteGcdaFiles', COMMAND_deleteGcdaFiles],
-		['gcov-viewer.selectIncludeDirectory', COMMAND_selectIncludeDirectory],
+		['gcov-viewer.selectBuildDirectory', COMMAND_selectBuildDirectory],
 		['gcov-viewer.dumpPathsWithCoverageData', COMMAND_dumpPathsWithCoverageData],
 		['gcov-viewer.viewFunctionsByCallCount', COMMAND_viewFunctionsByCallCount],
 	];
@@ -62,38 +62,38 @@ function getTextDocumentConfig(document: vscode.TextDocument) {
 	return vscode.workspace.getConfiguration('gcovViewer', document);
 }
 
-function getIncludeDirectories(): string[] {
+function getbuildDirectories(): string[] {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return [];
 	}
 
-	const includeDirectories: string[] = [];
+	const buildDirectories: string[] = [];
 	const workspaceFolderPaths: string[] = [];
 	for (const workspaceFolder of vscode.workspace.workspaceFolders) {
 		workspaceFolderPaths.push(workspaceFolder.uri.fsPath);
 		const config = getWorkspaceFolderConfig(workspaceFolder);
-		const dirs = config.get<string[]>('includeDirectories');
+		const dirs = config.get<string[]>('buildDirectories');
 		if (dirs !== undefined) {
 			for (let dir of dirs) {
 				dir = dir.replace('${workspaceFolder}', workspaceFolder.uri.fsPath);
-				includeDirectories.push(dir);
+				buildDirectories.push(dir);
 			}
 		}
 	}
-	if (includeDirectories.length === 0) {
-		includeDirectories.push(...workspaceFolderPaths);
+	if (buildDirectories.length === 0) {
+		buildDirectories.push(...workspaceFolderPaths);
 	}
-	return includeDirectories;
+	return buildDirectories;
 }
 
 async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
 	progress?.report({ message: 'Searching .gcda files' });
-	const includeDirectories = getIncludeDirectories();
+	const buildDirectories = getbuildDirectories();
 
 	let counter = 0;
 	const gcdaPaths: Set<string> = new Set();
-	for (const includeDirectory of includeDirectories) {
-		await recursiveReaddir(includeDirectory, path => {
+	for (const buildDirectory of buildDirectories) {
+		await recursiveReaddir(buildDirectory, path => {
 			if (path.endsWith('.gcda')) {
 				gcdaPaths.add(path);
 			}
@@ -147,16 +147,11 @@ async function reloadGcdaFiles() {
 			const gcdaPaths = await getGcdaPaths(progress, token);
 			if (gcdaPaths.length === 0) {
 				vscode.window.showInformationMessage(
-					'Cannot find any .gcda files. You have to run the program first. '
-					+ 'Furthermore, you may have to specify the folder where the .gcda files are located. '
-					+ 'This can be done using the "Gcov Viewer: Select Include Directory" command. '
-					+ 'They are usually located next to the .o files.',
-					'Select Include Directory', 'Use Neighboring Directory').then(value => {
-						if (value === 'Select Include Directory') {
-							COMMAND_selectIncludeDirectory();
-						}
-						else if (value === 'Use Neighboring Directory') {
-							selectNeighboringIncludeDirectory();
+					'Cannot find any .gcda files. Please specify the build directory where the .gcda files are located. '
+					+ 'Furthermore, you might still have to run your program. This will generate the .gcda files.',
+					'Select Build Directory').then(value => {
+						if (value === 'Select Build Directory') {
+							COMMAND_selectBuildDirectory();
 						}
 					});
 				return;
@@ -191,6 +186,7 @@ async function COMMAND_deleteGcdaFiles() {
 		},
 		async (progress, token) => {
 			await COMMAND_hideDecorations();
+			isShowingDecorations = false;
 			progress.report({ increment: 0 });
 			const paths = await getGcdaPaths(progress, token);
 			const increment = 100 / paths.length;
@@ -223,14 +219,10 @@ async function COMMAND_hideDecorations() {
 }
 
 async function showDecorations() {
-	let foundDecorations = false;
 	for (const editor of vscode.window.visibleTextEditors) {
-		const addedDecorations = await decorateEditor(editor);
-		foundDecorations = addedDecorations || foundDecorations;
+		await decorateEditor(editor);
 	}
-	if (foundDecorations) {
-		isShowingDecorations = true;
-	}
+	isShowingDecorations = true;
 }
 
 async function COMMAND_showDecorations() {
@@ -361,12 +353,9 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	else {
 		editor.setDecorations(missedLinesDecorationType, []);
 	}
-
-	const decorationsAmount = decorations.calledLineDecorations.length + decorations.missedLineDecorations.length;
-	return decorationsAmount > 0;
 }
 
-async function COMMAND_selectIncludeDirectory() {
+async function COMMAND_selectBuildDirectory() {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return;
 	}
@@ -375,7 +364,7 @@ async function COMMAND_selectIncludeDirectory() {
 		canSelectFiles: false,
 		canSelectFolders: true,
 		canSelectMany: true,
-		openLabel: 'Select Include Directory'
+		openLabel: 'Select Build Directory'
 	});
 	if (value === undefined) {
 		return;
@@ -388,28 +377,8 @@ async function COMMAND_selectIncludeDirectory() {
 
 	for (const workspaceFolder of vscode.workspace.workspaceFolders) {
 		const config = getWorkspaceFolderConfig(workspaceFolder);
-		config.update('includeDirectories', paths);
+		config.update('buildDirectories', paths);
 	}
-}
-
-async function selectNeighboringIncludeDirectory() {
-	if (vscode.workspace.workspaceFolders === undefined) {
-		return;
-	}
-	const workspaceFolder = vscode.workspace.workspaceFolders[0];
-	const neighboringDirectories = await getNeighboringDirectories(workspaceFolder.uri.fsPath);
-
-	const quickPick = vscode.window.createQuickPick();
-	quickPick.items = neighboringDirectories.map(path => {
-		return { label: path };
-	});
-	quickPick.onDidHide(() => quickPick.dispose());
-	quickPick.onDidChangeSelection(selection => {
-		quickPick.hide();
-		const config = getWorkspaceFolderConfig(workspaceFolder);
-		config.update('includeDirectories', [selection[0].label]);
-	});
-	quickPick.show();
 }
 
 async function COMMAND_dumpPathsWithCoverageData() {

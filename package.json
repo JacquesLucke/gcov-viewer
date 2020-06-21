@@ -28,7 +28,7 @@
 		"onCommand:gcov-viewer.toggle",
 		"onCommand:gcov-viewer.reloadGcdaFiles",
 		"onCommand:gcov-viewer.deleteGcdaFiles",
-		"onCommand:gcov-viewer.selectIncludeDirectory",
+		"onCommand:gcov-viewer.selectBuildDirectory",
 		"onCommand:gcov-viewer.dumpPathsWithCoverageData",
 		"onCommand:gcov-viewer.viewFunctionsByCallCount"
 	],
@@ -52,17 +52,17 @@
 			},
 			{
 				"command": "gcov-viewer.reloadGcdaFiles",
-				"title": "Reload .gcda Files",
+				"title": "Reload (Import .gcda Files)",
 				"category": "Gcov Viewer"
 			},
 			{
 				"command": "gcov-viewer.deleteGcdaFiles",
-				"title": "Delete .gcda Files",
+				"title": "Reset (Delete .gcda Files)",
 				"category": "Gcov Viewer"
 			},
 			{
-				"command": "gcov-viewer.selectIncludeDirectory",
-				"title": "Select Include Directory",
+				"command": "gcov-viewer.selectBuildDirectory",
+				"title": "Select Build Directory",
 				"category": "Gcov Viewer"
 			},
 			{
@@ -80,9 +80,9 @@
 			{
 				"title": "Gcov Viewer",
 				"properties": {
-					"gcovViewer.includeDirectories": {
+					"gcovViewer.buildDirectories": {
 						"type": "array",
-						"title": "Include Directories",
+						"title": "Build Directories",
 						"scope": "window",
 						"description": "Directories that will be included in the search for .gcda files."
 					},

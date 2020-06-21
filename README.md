@@ -10,14 +10,18 @@
 
 During compilation, `gcc` will generate a `.gcno` file next to every `.o` file. When you run the program, it will create `.gcda` files in the same location. Those contain information about how often functions and lines have been executed.
 
-This vscode extension uses the `gcov` program to parse these additional files and displays the information on top of your source files. For this to work, it has to find the generated `.gcda` for a given project. Those are usually in your build directory. If the extension does not find them on its own, you have to edit the `gcovViewer.includeDirectories` setting of your workspace folder. The most convenient way to do this is to use the `Gcov Viewer: Select Include Directory` command.
-
-## Screenshots
-
-![image](images/code_highlight_example.png)
-![image](images/template_example.png)
+This vscode extension uses the `gcov` program to parse these additional files and displays the information on top of your source files. For this to work, it has to find the generated `.gcda` for a given project. Those are usually in your build directory. If the extension does not find them on its own, you have to edit the `gcovViewer.buildDirectories` setting of your workspace folder. The most convenient way to do this is to use the `Gcov Viewer: Select Build Directory` command.
 
 ## Known Issues
 
 - Sometimes lines are counted more than once when they do more than one thing. That might be confusing in some cases. Usually it is quite easy to get the correct number by looking at neighboring lines.
 - When the `gcovViewer.highlightMissedLines` is turned on, some missed lines might not be marked as such.
+
+## Limitations
+
+- Only works with version 9 or higher of `gcc`, `g++` and `gcov`.
+
+## Screenshots
+
+![image](images/code_highlight_example.png)
+![image](images/template_example.png)

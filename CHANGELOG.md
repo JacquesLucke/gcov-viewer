@@ -1,3 +1,9 @@
+## Unreleased
+
+### Changed
+
+- Renamed "include directories" to "build directories".
+
 ## 0.1.0 - 2020-06-20
 
 ### Added
