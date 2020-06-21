@@ -1,6 +1,10 @@
 import { GcovLineData, GcovData, GcovFunctionData, GcovFileData } from './gcovInterface';
 import { loadGcovData } from './gcovInterface';
 
+/**
+ * Cache for all data loaded using gcov. This way we don't have to reload
+ * it everytime the user looks at a new file.
+ */
 export class CoverageCache {
     dataByFile: Map<string, GcovFileData> = new Map();
     demangledNames: Map<string, string> = new Map();

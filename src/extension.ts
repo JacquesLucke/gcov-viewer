@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as util from 'util';
 import * as os from 'os';
-import { GcovLineData, isGcovCompatible, GcovFunctionData } from './gcovInterface';
-import { recursiveReaddir } from './fsScanning';
+import { GcovLineData, isGcovCompatible, GcovFunctionData, GcovFileData } from './gcovInterface';
+import { findAllFilesRecursively } from './fsScanning';
 import { splitArrayInChunks, shuffleArray } from './arrayUtils';
 import { CoverageCache } from './coverageCache';
 
@@ -40,17 +40,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() { }
 
+const calledLineColor = 'rgba(50, 240, 50, 0.1)';
 const calledLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
-	backgroundColor: "rgba(50, 240, 50, 0.1)",
-	overviewRulerColor: "rgba(50, 240, 50, 0.1)",
+	backgroundColor: calledLineColor,
+	overviewRulerColor: calledLineColor,
 	rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
 });
 
+const missedLineColor = 'rgba(240, 50, 50, 0.1)';
 const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
-	backgroundColor: "rgba(240, 50, 50, 0.1)",
-	overviewRulerColor: "rgba(240, 50, 50, 0.1)",
+	backgroundColor: missedLineColor,
+	overviewRulerColor: missedLineColor,
 	rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
 });
 
@@ -62,7 +64,7 @@ function getTextDocumentConfig(document: vscode.TextDocument) {
 	return vscode.workspace.getConfiguration('gcovViewer', document);
 }
 
-function getbuildDirectories(): string[] {
+function getBuildDirectories(): string[] {
 	if (vscode.workspace.workspaceFolders === undefined) {
 		return [];
 	}
@@ -88,12 +90,12 @@ function getbuildDirectories(): string[] {
 
 async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
 	progress?.report({ message: 'Searching .gcda files' });
-	const buildDirectories = getbuildDirectories();
+	const buildDirectories = getBuildDirectories();
 
 	let counter = 0;
 	const gcdaPaths: Set<string> = new Set();
 	for (const buildDirectory of buildDirectories) {
-		await recursiveReaddir(buildDirectory, path => {
+		await findAllFilesRecursively(buildDirectory, path => {
 			if (path.endsWith('.gcda')) {
 				gcdaPaths.add(path);
 			}
@@ -109,12 +111,13 @@ let coverageCache = new CoverageCache();
 
 type MyProgress = vscode.Progress<{ message?: string; increment?: number }>;
 
-
 async function reloadCoverageDataFromPaths(
 	paths: string[], totalPaths: number,
 	progress: MyProgress,
 	token: vscode.CancellationToken) {
 
+	/* Process multiple paths per gcov invocation to avoid some overhead.
+	 * Don't process too many files at once so that the progress bar looks more active. */
 	const chunks = splitArrayInChunks(paths, Math.ceil(paths.length / 30));
 	for (const pathsChunk of chunks) {
 		if (token.isCancellationRequested) {
@@ -128,6 +131,17 @@ async function reloadCoverageDataFromPaths(
 			message: `[${coverageCache.loadedGcdaFiles.length}/${totalPaths}] Parsing`
 		});
 	}
+}
+
+function showNoFilesFoundMessage() {
+	vscode.window.showInformationMessage(
+		'Cannot find any .gcda files. Please specify the build directory where the .gcda files are located. '
+		+ 'Furthermore, you might still have to run your program. This will generate the .gcda files.',
+		'Select Build Directory').then(value => {
+			if (value === 'Select Build Directory') {
+				COMMAND_selectBuildDirectory();
+			}
+		});
 }
 
 async function reloadGcdaFiles() {
@@ -146,20 +160,15 @@ async function reloadGcdaFiles() {
 
 			const gcdaPaths = await getGcdaPaths(progress, token);
 			if (gcdaPaths.length === 0) {
-				vscode.window.showInformationMessage(
-					'Cannot find any .gcda files. Please specify the build directory where the .gcda files are located. '
-					+ 'Furthermore, you might still have to run your program. This will generate the .gcda files.',
-					'Select Build Directory').then(value => {
-						if (value === 'Select Build Directory') {
-							COMMAND_selectBuildDirectory();
-						}
-					});
+				showNoFilesFoundMessage();
 				return;
 			}
 
+			/* Shuffle paths make the processing time of the individual chunks more similar. */
 			shuffleArray(gcdaPaths);
 			const pathChunks = splitArrayInChunks(gcdaPaths, os.cpus().length);
 
+			/* Process chunks asynchronously, so that gcov is invoked multiple times in parallel. */
 			const promises = [];
 			for (const pathChunk of pathChunks) {
 				promises.push(reloadCoverageDataFromPaths(
@@ -232,11 +241,15 @@ async function COMMAND_showDecorations() {
 	await showDecorations();
 }
 
-function getDataForFile(absolutePath: string) {
+function findCachedDataForFile(absolutePath: string): GcovFileData | undefined {
+	/* Check if there is cached data for the exact path. */
 	const dataOfFile = coverageCache.dataByFile.get(absolutePath);
 	if (dataOfFile !== undefined) {
 		return dataOfFile;
 	}
+	/* Try to guess which cached data belongs to the given path.
+	 * This might have to be improved in the future when we learn more about
+	 * the ways this can fail. */
 	for (const [storedPath, dataOfFile] of coverageCache.dataByFile.entries()) {
 		if (absolutePath.endsWith(storedPath)) {
 			return dataOfFile;
@@ -274,7 +287,7 @@ function createRangeForLine(lineIndex: number) {
 		new vscode.Position(lineIndex, 100000));
 }
 
-function createTooltipForExecutedLine(lineDataByFunction: Map<string, GcovLineData[]>) {
+function createTooltipForCalledLine(lineDataByFunction: Map<string, GcovLineData[]>) {
 	let tooltip = '';
 	for (const [functionName, dataArray] of lineDataByFunction.entries()) {
 		let count = computeSum(dataArray, x => x.count);
@@ -294,9 +307,9 @@ function createMissedLineDecoration(range: vscode.Range) {
 	return decoration;
 }
 
-function createExecutedLineDecoration(range: vscode.Range, totalCalls: number, lineDataArray: GcovLineData[]) {
+function createCalledLineDecoration(range: vscode.Range, totalCalls: number, lineDataArray: GcovLineData[]) {
 	const lineDataByFunction = groupData(lineDataArray, x => x.function_name);
-	let tooltip = createTooltipForExecutedLine(lineDataByFunction);
+	let tooltip = createTooltipForCalledLine(lineDataByFunction);
 	const decoration: vscode.DecorationOptions = {
 		range: range,
 		hoverMessage: tooltip,
@@ -329,7 +342,7 @@ function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorati
 			decorations.missedLineDecorations.push(createMissedLineDecoration(range));
 		}
 		else {
-			decorations.calledLineDecorations.push(createExecutedLineDecoration(range, totalCalls, lineDataArray));
+			decorations.calledLineDecorations.push(createCalledLineDecoration(range, totalCalls, lineDataArray));
 		}
 	}
 
@@ -338,7 +351,7 @@ function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorati
 
 async function decorateEditor(editor: vscode.TextEditor) {
 	const path = editor.document.uri.fsPath;
-	const linesDataOfFile = getDataForFile(path)?.lines;
+	const linesDataOfFile = findCachedDataForFile(path)?.lines;
 	if (linesDataOfFile === undefined) {
 		return false;
 	}
@@ -409,7 +422,7 @@ async function COMMAND_viewFunctionsByCallCount() {
 		await reloadGcdaFiles();
 	}
 
-	const functionsDataOfFile = getDataForFile(editor.document.uri.fsPath)?.functions;
+	const functionsDataOfFile = findCachedDataForFile(editor.document.uri.fsPath)?.functions;
 	if (functionsDataOfFile === undefined) {
 		return;
 	}

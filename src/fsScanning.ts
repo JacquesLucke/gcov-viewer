@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { join, dirname } from 'path';
-import { assert } from 'console';
+import { join } from 'path';
 
 function readdirOrEmpty(path: string) {
     return new Promise<string[]>(resolve => {
@@ -30,11 +29,17 @@ function statsOrUndefined(path: string) {
     });
 }
 
-export async function recursiveReaddir(basePath: string, callback: (path: string) => void, token?: vscode.CancellationToken) {
-    let fileNames: string[] = await readdirOrEmpty(basePath);
+/**
+ * Calls the given callback with every found file path in the given directory.
+ * Other implementations return all paths at once, but the progress can't be
+ * reported in the ui. Furthermore, this function can be cancelled by the user
+ * if it takes too long.
+ */
+export async function findAllFilesRecursively(directory: string, callback: (path: string) => void, token?: vscode.CancellationToken) {
+    let fileNames: string[] = await readdirOrEmpty(directory);
 
     for (const fileName of fileNames) {
-        const path = join(basePath, fileName);
+        const path = join(directory, fileName);
         const stats = await statsOrUndefined(path);
         if (stats === undefined) {
             continue;
@@ -46,7 +51,7 @@ export async function recursiveReaddir(basePath: string, callback: (path: string
             callback(path);
         }
         else {
-            await recursiveReaddir(path, callback, token);
+            await findAllFilesRecursively(path, callback, token);
         }
     }
 }
