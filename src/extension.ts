@@ -353,7 +353,7 @@ async function decorateEditor(editor: vscode.TextEditor) {
 	const path = editor.document.uri.fsPath;
 	const linesDataOfFile = findCachedDataForFile(path)?.lines;
 	if (linesDataOfFile === undefined) {
-		return false;
+		return;
 	}
 
 	const config = getTextDocumentConfig(editor.document);
