@@ -4,7 +4,7 @@
 
 ## Usage
 
-1. Compile your code with `gcc`/`g++` (version >= 9) without optimizations with the `-fprofile-arcs -ftest-coverage` arguments.
+1. Compile your code with `gcc`/`g++` (version >= 9) with `--coverage` and without optimizations.
 2. Run your program or tests.
 3. Open a source file in vscode and use `ctrl+shift+P` to run the `Gcov Viewer: Show` command.
 
