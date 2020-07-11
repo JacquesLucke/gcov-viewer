@@ -19,7 +19,7 @@ This vscode extension uses the `gcov` program to parse these additional files an
 
 ## Limitations
 
-- Only works with version 9 or higher of `gcc`, `g++` and `gcov`.
+- Only works with version 9 or higher of `gcc`, `g++` and `gcov`. If you have multiple versions of `gcov`, you might have to change the `Gcov Binary` setting.
 
 ## Screenshots
 

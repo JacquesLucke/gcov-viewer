@@ -44,7 +44,7 @@ export async function isGcovCompatible() {
     return new Promise<boolean>((resolve, reject) => {
         child_process.exec(command, (err, stdout, stderr) => {
             if (err) {
-                vscode.window.showErrorMessage(`Error while trying to run gcov: ${err}`);
+                vscode.window.showErrorMessage(`Error while trying to run gcov, try to change the "Gcov Binary" setting. ${err}`);
                 resolve(false);
                 return;
             }

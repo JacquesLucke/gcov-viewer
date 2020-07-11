@@ -88,7 +88,7 @@
 					},
 					"gcovViewer.gcovBinary": {
 						"type": "string",
-						"title": "Gcov binary",
+						"title": "Gcov Binary",
 						"scope": "machine",
 						"description": "Path to the gcov binary",
 						"default": "gcov"
