@@ -134,9 +134,15 @@ async function reloadCoverageDataFromPaths(
 }
 
 function showNoFilesFoundMessage() {
-	vscode.window.showInformationMessage(
-		'Cannot find any .gcda files. Please specify the build directory where the .gcda files are located. '
-		+ 'Furthermore, you might still have to run your program. This will generate the .gcda files.',
+	const message = `
+		Cannot find any coverage data (.gcda files). Possible problems:
+		1) You have not built your program with --coverage.
+		2) The build directory is located somewhere else, you have to specify it using the button below.
+		3) You have not run the program yet.
+	`;
+
+	vscode.window.showErrorMessage(
+		message,
 		'Select Build Directory').then(value => {
 			if (value === 'Select Build Directory') {
 				COMMAND_selectBuildDirectory();
