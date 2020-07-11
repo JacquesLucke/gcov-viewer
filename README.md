@@ -1,6 +1,6 @@
 # Gcov Viewer
 
-[Gcov](https://gcc.gnu.org/onlinedocs/gcc/Gcov.html) is a tool you can use in conjunction with GCC to test code coverage in your programs. This extension visualizes the output of gcov in visual studio code. It allows you to see which lines of the program have been executed and how often.
+[Gcov](https://gcc.gnu.org/onlinedocs/gcc/Gcov.html) is a tool you can use in conjunction with GCC to test code coverage in your programs. This extension visualizes the output of gcov in Visual Studio Code. It allows you to see which lines of the program have been executed and how often.
 
 ## Usage
 
@@ -15,7 +15,7 @@ This vscode extension uses the `gcov` program to parse these additional files an
 ## Known Issues
 
 - Sometimes lines are counted more than once when they do more than one thing. That might be confusing in some cases. Usually it is quite easy to get the correct number by looking at neighboring lines.
-- When the `gcovViewer.highlightMissedLines` is turned on, some missed lines might not be marked as such.
+- When the `Highlight Missed Lines` setting is enabled, some missed lines might not be marked as such.
 
 ## Limitations
 
