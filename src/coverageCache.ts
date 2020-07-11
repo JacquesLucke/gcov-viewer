@@ -34,4 +34,8 @@ export class CoverageCache {
         }
         this.loadedGcdaFiles.push(...gcdaPaths);
     }
+
+    hasData() {
+        return this.loadedGcdaFiles.length > 0;
+    }
 };

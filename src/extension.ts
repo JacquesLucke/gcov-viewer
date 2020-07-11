@@ -237,7 +237,9 @@ async function showDecorations() {
 	for (const editor of vscode.window.visibleTextEditors) {
 		await decorateEditor(editor);
 	}
-	isShowingDecorations = true;
+	if (coverageCache.hasData()) {
+		isShowingDecorations = true;
+	}
 }
 
 async function COMMAND_showDecorations() {
