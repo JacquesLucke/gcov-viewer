@@ -1,3 +1,11 @@
+## 0.3.0 - 2020-07-11
+
+### Changed
+
+- Suggest using `--coverage` instead of `-fprofile-arcs -ftest-coverage` in readme.
+- Sort lines in tooltip by call count.
+- Improve error messages.
+
 ## 0.2.0 - 2020-06-21
 
 ### Changed
