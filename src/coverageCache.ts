@@ -1,5 +1,4 @@
-import { GcovLineData, GcovData, GcovFunctionData, GcovFileData } from './gcovInterface';
-import { loadGcovData } from './gcovInterface';
+import { loadGcovData, GcovFileData } from './gcovInterface';
 
 /**
  * Cache for all data loaded using gcov. This way we don't have to reload
