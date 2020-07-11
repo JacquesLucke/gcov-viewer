@@ -296,14 +296,17 @@ function createRangeForLine(lineIndex: number) {
 }
 
 function createTooltipForCalledLine(lineDataByFunction: Map<string, GcovLineData[]>) {
-	let tooltip = '';
+	const tooltipLinesWithCallCount: [string, number][] = [];
 	for (const [functionName, dataArray] of lineDataByFunction.entries()) {
 		let count = computeSum(dataArray, x => x.count);
 		if (count > 0) {
 			const demangledName = coverageCache.demangledNames.get(functionName)!;
-			tooltip += `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
+			const tooltipLine = `${count.toLocaleString()}x in \`${demangledName}\`\n\n`;
+			tooltipLinesWithCallCount.push([tooltipLine, count]);
 		}
 	}
+	tooltipLinesWithCallCount.sort((a, b) => b[1] - a[1]);
+	const tooltip = tooltipLinesWithCallCount.map(x => x[0]).join('\n');
 	return tooltip;
 }
 
