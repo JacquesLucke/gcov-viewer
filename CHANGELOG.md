@@ -1,3 +1,9 @@
+## 0.4.0 - 2020-08-26
+
+### Fixed
+
+- Better support for Windows paths when using MinGW-gcc.
+
 ## 0.3.0 - 2020-07-11
 
 ### Changed
