@@ -255,6 +255,15 @@ function findCachedDataForFile(absolutePath: string): GcovFileData | undefined {
 	if (dataOfFile !== undefined) {
 		return dataOfFile;
 	}
+	/* Path of win32 is case insensitive and path separators may be different. */
+	if (os.platform() === "win32") {
+		const absolutePathWin = absolutePath.replace(/\\/g, "/").toLowerCase();
+		for (const [storedPath, dataOfFile] of coverageCache.dataByFile.entries()) {
+			if (storedPath.toLowerCase() === absolutePathWin && dataOfFile !== undefined) {
+				return dataOfFile;
+			}
+		}
+	}
 	/* Try to guess which cached data belongs to the given path.
 	 * This might have to be improved in the future when we learn more about
 	 * the ways this can fail. */
