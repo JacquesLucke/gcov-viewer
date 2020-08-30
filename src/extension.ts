@@ -48,7 +48,7 @@ const calledLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
 });
 
-const missedLineColor = 'rgba(240, 50, 50, 0.1)';
+const missedLineColor = 'rgba(240, 50, 50, 0.3)';
 const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
 	isWholeLine: true,
 	backgroundColor: missedLineColor,
