@@ -12,6 +12,10 @@ During compilation, `gcc` will generate a `.gcno` file next to every `.o` file. 
 
 This vscode extension uses the `gcov` program to parse these additional files and displays the information on top of your source files. For this to work, it has to find the generated `.gcda` for a given project. Those are usually in your build directory. If the extension does not find them on its own, you have to edit the `gcovViewer.buildDirectories` setting of your workspace folder. The most convenient way to do this is to use the `Gcov Viewer: Select Build Directory` command.
 
+## Troubleshooting
+
+- Try passing `-fprofile-abs-path` to gcc. This helps the extension to match source files with their corresponding coverage data.
+
 ## Known Issues
 
 - Sometimes lines are counted more than once when they do more than one thing. That might be confusing in some cases. Usually it is quite easy to get the correct number by looking at neighboring lines.
