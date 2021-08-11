@@ -327,15 +327,18 @@ function createMissedLineDecoration(range: vscode.Range) {
 	return decoration;
 }
 
-function createCalledLineDecoration(range: vscode.Range, totalCalls: number, lineDataArray: GcovLineData[]) {
+function createCalledLineDecoration(range: vscode.Range, totalCalls: number, lineDataArray: GcovLineData[], coverageRate: number) {
 	const lineDataByFunction = groupData(lineDataArray, x => x.function_name);
 	let tooltip = createTooltipForCalledLine(lineDataByFunction);
+	let displayText = isNaN(coverageRate) ? `   ${totalCalls.toLocaleString()}x` :
+		`   ${totalCalls.toLocaleString()}x [${Number(coverageRate).toFixed(1)}%]`;
+
 	const decoration: vscode.DecorationOptions = {
 		range: range,
 		hoverMessage: tooltip,
 		renderOptions: {
 			after: {
-				contentText: `   ${totalCalls.toLocaleString()}x`,
+				contentText: displayText,
 				color: new vscode.ThemeColor('editorCodeLens.foreground'),
 				fontStyle: 'italic',
 			},
@@ -349,20 +352,46 @@ class LineDecorationsGroup {
 	missedLineDecorations: vscode.DecorationOptions[] = [];
 };
 
-function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorationsGroup {
-	const decorations = new LineDecorationsGroup();
+function calculateCoverageRate(linesDataOfFile: GcovLineData[]): Map<string, number> {
+	const funcLines = groupData(linesDataOfFile, x => x.function_name);
+	const funcCoverages: Map<string, number> = new Map();
 
+	for (const [funcName, lineDatas] of funcLines.entries()) {
+		let totalLineNum = 0;
+		let calledLineNum = 0;
+		for (const lineData of lineDatas.values()) {
+			totalLineNum++;
+			calledLineNum += (lineData.count > 0 ? 1 : 0);
+		}
+		funcCoverages.set(funcName, 100 * calledLineNum / totalLineNum);
+	}
+	return funcCoverages;
+}
+
+function isFirstLineOfFunction(funcsDataOfFile: GcovFunctionData[], funcName: string, lineNumber: number): boolean {
+	const funcData = funcsDataOfFile.find(x => x.name == funcName);
+	return (funcData !== undefined && funcData.start_line === lineNumber);
+}
+
+function createDecorationsForFile(linesDataOfFile: GcovLineData[], funcsDataOfFile: GcovFunctionData[]): LineDecorationsGroup {
+	const decorations = new LineDecorationsGroup();
 	const hitLines = groupData(linesDataOfFile, x => x.line_number);
+	const funcCoverages = calculateCoverageRate(linesDataOfFile);
 
 	for (const lineDataArray of hitLines.values()) {
-		const lineIndex = lineDataArray[0].line_number - 1;
+		const funcName = lineDataArray[0].function_name;
+		const lineNumber = lineDataArray[0].line_number;
+		const lineIndex = lineNumber - 1;
 		const range = createRangeForLine(lineIndex);
 		const totalCalls = sumTotalCalls(lineDataArray);
 		if (totalCalls === 0) {
 			decorations.missedLineDecorations.push(createMissedLineDecoration(range));
 		}
 		else {
-			decorations.calledLineDecorations.push(createCalledLineDecoration(range, totalCalls, lineDataArray));
+			/* First line of function will be appended with coverage rate. */
+			const isFuncStart = isFirstLineOfFunction(funcsDataOfFile, funcName, lineNumber);
+			const coverageRate = isFuncStart ? Number(funcCoverages.get(funcName)) : NaN;
+			decorations.calledLineDecorations.push(createCalledLineDecoration(range, totalCalls, lineDataArray, coverageRate));
 		}
 	}
 
@@ -371,14 +400,16 @@ function createDecorationsForFile(linesDataOfFile: GcovLineData[]): LineDecorati
 
 async function decorateEditor(editor: vscode.TextEditor) {
 	const path = editor.document.uri.fsPath;
-	const linesDataOfFile = findCachedDataForFile(path)?.lines;
-	if (linesDataOfFile === undefined) {
+	const cacheData = findCachedDataForFile(path);
+	const linesDataOfFile = cacheData?.lines;
+	const funcsDataOfFile = cacheData?.functions;
+	if (linesDataOfFile === undefined || funcsDataOfFile === undefined) {
 		return;
 	}
 
 	const config = getTextDocumentConfig(editor.document);
 
-	const decorations = createDecorationsForFile(linesDataOfFile);
+	const decorations = createDecorationsForFile(linesDataOfFile, funcsDataOfFile);
 	editor.setDecorations(calledLinesDecorationType, decorations.calledLineDecorations);
 	if (config.get<boolean>('highlightMissedLines')) {
 		editor.setDecorations(missedLinesDecorationType, decorations.missedLineDecorations);
