@@ -58,7 +58,7 @@ export async function isGcovCompatible() {
     });
 }
 
-export async function loadGcovData(paths: string[]): Promise<GcovData[]> {
+export async function loadGcovData(buildDirectory: string, paths: string[]): Promise<GcovData[]> {
     if (paths.length === 0) {
         return [];
     }
@@ -70,7 +70,8 @@ export async function loadGcovData(paths: string[]): Promise<GcovData[]> {
         command += ` "${path}"`;
     }
     return new Promise<GcovData[]>((resolve, reject) => {
-        child_process.exec(command, { maxBuffer: 256 * 1024 * 1024 }, (err, stdout, stderr) => {
+        child_process.exec(command, { maxBuffer: 256 * 1024 * 1024, cwd : buildDirectory }, 
+            (err, stdout, stderr) => {
             if (err) {
                 console.error(`exec error: ${err}`);
                 reject();

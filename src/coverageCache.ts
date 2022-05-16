@@ -1,5 +1,5 @@
 import { loadGcovData, GcovFileData } from './gcovInterface';
-
+import { resolve } from 'path';
 /**
  * Cache for all data loaded using gcov. This way we don't have to reload
  * it everytime the user looks at a new file.
@@ -9,15 +9,20 @@ export class CoverageCache {
     demangledNames: Map<string, string> = new Map();
     loadedGcdaFiles: string[] = [];
 
-    async loadGcdaFiles(gcdaPaths: string[]) {
-        const gcovDataArray = await loadGcovData(gcdaPaths);
+    async loadGcdaFiles(buildDirectory: string, gcdaPaths: string[]) {
+        const gcovDataArray = await loadGcovData(buildDirectory, gcdaPaths);
 
         for (const gcovData of gcovDataArray) {
             for (const fileData of gcovData.files) {
                 const cachedFileData = this.dataByFile.get(fileData.file);
                 if (cachedFileData === undefined) {
-                    this.dataByFile.set(fileData.file, {
-                        file: fileData.file,
+                    let realpath = fileData.file;
+                    if (!realpath.startsWith("/")) { /* relative path to absolute path */
+                        realpath = resolve(buildDirectory, realpath)
+                    }
+
+                    this.dataByFile.set(realpath, {
+                        file: realpath,
                         lines: [...fileData.lines],
                         functions: [...fileData.functions],
                     });

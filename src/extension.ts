@@ -88,13 +88,19 @@ function getBuildDirectories(): string[] {
 	return buildDirectories;
 }
 
-async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
+class GcdaPathsGroup {
+	buildDirectory: string = "";
+	gcdaPaths: string[] = [];
+};
+
+async function getGcdaPathsGroups(progress?: MyProgress, token?: vscode.CancellationToken) {
 	progress?.report({ message: 'Searching .gcda files' });
 	const buildDirectories = getBuildDirectories();
 
 	let counter = 0;
-	const gcdaPaths: Set<string> = new Set();
+	const gcdaPathsGroups: Set<GcdaPathsGroup> = new Set();
 	for (const buildDirectory of buildDirectories) {
+		const gcdaPaths: Set<string> = new Set();
 		await findAllFilesRecursively(buildDirectory, path => {
 			if (path.endsWith('.gcda')) {
 				gcdaPaths.add(path);
@@ -102,7 +108,25 @@ async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationTo
 			counter++;
 			progress?.report({ message: `[${counter}] Scanning (found ${gcdaPaths.size}): ${path}` });
 		}, token);
+		
+		if (gcdaPaths.size === 0) {
+			continue;
+		}
+		gcdaPathsGroups.add({buildDirectory : buildDirectory, gcdaPaths : Array.from(gcdaPaths)});
 	}
+
+	return Array.from(gcdaPathsGroups);
+}
+
+async function getGcdaPaths(progress?: MyProgress, token?: vscode.CancellationToken) {
+	let gcdaPathsGroups: GcdaPathsGroup[] = await getGcdaPathsGroups(progress, token);
+	const gcdaPaths: Set<string> = new Set();
+
+	for (const gcdaPathsGroup of gcdaPathsGroups) {
+		for (const path of gcdaPathsGroup.gcdaPaths) {
+			gcdaPaths.add(path);
+		}
+	} 
 
 	return Array.from(gcdaPaths);
 }
@@ -112,6 +136,7 @@ let coverageCache = new CoverageCache();
 type MyProgress = vscode.Progress<{ message?: string; increment?: number }>;
 
 async function reloadCoverageDataFromPaths(
+	buildDirectory: string,
 	paths: string[], totalPaths: number,
 	progress: MyProgress,
 	token: vscode.CancellationToken) {
@@ -124,7 +149,7 @@ async function reloadCoverageDataFromPaths(
 			return;
 		}
 
-		await coverageCache.loadGcdaFiles(pathsChunk);
+		await coverageCache.loadGcdaFiles(buildDirectory, pathsChunk);
 
 		progress.report({
 			increment: 100 * pathsChunk.length / totalPaths,
@@ -164,22 +189,27 @@ async function reloadGcdaFiles() {
 			coverageCache = new CoverageCache();
 			progress.report({ increment: 0 });
 
-			const gcdaPaths = await getGcdaPaths(progress, token);
-			if (gcdaPaths.length === 0) {
+			const gcdaPathsGroups: GcdaPathsGroup[] = await getGcdaPathsGroups(progress, token);
+			if (gcdaPathsGroups.length === 0) {
 				showNoFilesFoundMessage();
 				return;
 			}
 
-			/* Shuffle paths make the processing time of the individual chunks more similar. */
-			shuffleArray(gcdaPaths);
-			const pathChunks = splitArrayInChunks(gcdaPaths, os.cpus().length);
-
 			/* Process chunks asynchronously, so that gcov is invoked multiple times in parallel. */
 			const promises = [];
-			for (const pathChunk of pathChunks) {
-				promises.push(reloadCoverageDataFromPaths(
-					pathChunk, gcdaPaths.length, progress, token));
+
+			for (const gcdaPathsGroup of gcdaPathsGroups) {
+				/* Shuffle paths make the processing time of the individual chunks more similar. */
+				shuffleArray(gcdaPathsGroup.gcdaPaths);
+				const pathChunks = splitArrayInChunks(gcdaPathsGroup.gcdaPaths, os.cpus().length);
+
+
+				for (const pathChunk of pathChunks) {
+					promises.push(reloadCoverageDataFromPaths(gcdaPathsGroup.buildDirectory,
+						pathChunk, gcdaPathsGroup.gcdaPaths.length, progress, token));
+				}
 			}
+
 			await Promise.all(promises);
 		}
 	);
