@@ -27,6 +27,10 @@ export function activate(context: vscode.ExtensionContext) {
       COMMAND_dumpPathsWithCoverageData,
     ],
     ["gcov-viewer.viewFunctionsByCallCount", COMMAND_viewFunctionsByCallCount],
+    [
+      "gcov-viewer.dumpProcessedCoverageData",
+      COMMAND_dumpProcessedCoverageData,
+    ],
   ];
 
   for (const item of commands) {
@@ -522,6 +526,65 @@ async function COMMAND_dumpPathsWithCoverageData() {
   const dumpedPaths = paths.join("\n");
   const document = await vscode.workspace.openTextDocument({
     content: dumpedPaths,
+  });
+  vscode.window.showTextDocument(document);
+}
+
+function extractCoreFunctionName(demangledName: string) {
+  /* Split off all arguments. */
+  let name = demangledName.split("(")[0];
+  /* Shorten templates. */
+  let newName = "";
+  let templateDepth = 0;
+  for (const c of name) {
+    if (c == "<") {
+      templateDepth++;
+    } else if (c == ">") {
+      templateDepth--;
+      if (templateDepth == 0) {
+        newName += "<...>";
+      }
+    } else if (templateDepth == 0) {
+      newName += c;
+    }
+  }
+  name = newName;
+  /* Fix case for call operator. */
+  if (name.endsWith("::operator")) {
+    name += "()";
+  }
+  /* Remove return value. */
+  name = name.split(" ").pop()!;
+  return name;
+}
+
+async function COMMAND_dumpProcessedCoverageData() {
+  if (!isCoverageDataLoaded()) {
+    await reloadGcdaFiles();
+  }
+
+  const data = [];
+  console.log("start");
+  for (const [path, fileData] of coverageCache.dataByFile.entries()) {
+    const functionsByStartLine = groupData(
+      fileData.functions,
+      (x) => x.start_line
+    );
+
+    const coverages = createFunctionCoverages(fileData);
+    const mydata = [];
+    for (const [start, coverage] of coverages.entries()) {
+      const functions = functionsByStartLine.get(start)!;
+      const name = extractCoreFunctionName(functions[0].demangled_name);
+      mydata.push({ name, start, coverage });
+    }
+    data.push({ path, mydata });
+  }
+  console.log("middle");
+  const content = data.map((x) => JSON.stringify(x, null, 2)).join("\n");
+  console.log(content.length);
+  const document = await vscode.workspace.openTextDocument({
+    content: content,
   });
   vscode.window.showTextDocument(document);
 }
