@@ -588,7 +588,6 @@ async function COMMAND_dumpProcessedCoverageData() {
   }
 
   const data = [];
-  console.log("start");
   for (const [path, fileData] of coverageCache.dataByFile.entries()) {
     const functionsByStartLine = groupData(
       fileData.functions,
@@ -607,7 +606,7 @@ async function COMMAND_dumpProcessedCoverageData() {
     }
     data.push({ path, coverage: fileCoverage, mydata });
   }
-  const content = data.map((x) => JSON.stringify(x, null, 2)).join("\n");
+  const content = "const analysisData = " + JSON.stringify(data);
   const document = await vscode.workspace.openTextDocument({
     content: content,
   });

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Coverage Results</title>
+
+    <style>
+      table {
+        border-collapse: collapse;
+      }
+
+      #resultsTable td:nth-child(1),
+      #resultsTable td:nth-child(2) {
+        text-align: right;
+        width: 3em;
+        border-right: 1em solid transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <input id="filterInput" type="text" oninput="updateFilter()" />
+    <p id="summary"></p>
+    <table id="resultsTable">
+      <tr>
+        <th>Called</th>
+        <th>Total</th>
+        <th>Path</th>
+      </tr>
+    </table>
+    <script>
+      const inputField = document.getElementById("filterInput");
+      const resultsTable = document.getElementById("resultsTable");
+      const summaryText = document.getElementById("summary");
+
+      const dataByPath = new Map();
+
+      function main() {
+        analysisData.sort((a, b) => (a.path < b.path ? -1 : 1));
+
+        for (const fileData of analysisData) {
+          const row = document.createElement("tr");
+          resultsTable.appendChild(row);
+          const calledElem = document.createElement("td");
+          row.appendChild(calledElem);
+          const totalElem = document.createElement("td");
+          row.appendChild(totalElem);
+          const pathElem = document.createElement("td");
+          row.appendChild(pathElem);
+
+          calledElem.innerText = `${fileData.coverage.called}`;
+          totalElem.innerText = `${fileData.coverage.total}`;
+          pathElem.innerText = fileData.path;
+          dataByPath.set(fileData.path, { row, data: fileData });
+        }
+
+        updateFilter();
+      }
+
+      function mixColors(c1, c2, f) {
+        const f_inv = 1.0 - f;
+        return {
+          r: c1.r * f_inv + c2.r * f,
+          g: c1.g * f_inv + c2.g * f,
+          b: c1.b * f_inv + c2.b * f,
+        };
+      }
+
+      function getColor(total, called) {
+        if (total == called) {
+          return "rgb(70, 255, 70)";
+        }
+        const f = called / total;
+        const c = mixColors(
+          { r: 255, g: 100, b: 100 },
+          { r: 100, g: 255, b: 100 },
+          f
+        );
+        return `rgb(${c.r}, ${c.g}, ${c.b})`;
+      }
+
+      function updateFilter() {
+        let re;
+        try {
+          re = new RegExp(inputField.value);
+        } catch (e) {
+          return;
+        }
+        let totalLines = 0;
+        let calledLines = 0;
+        for (const [path, { row, data }] of dataByPath.entries()) {
+          const isVisible = path.match(re);
+          if (isVisible) {
+            row.style.display = "table-row";
+            row.style.backgroundColor = getColor(
+              data.coverage.total,
+              data.coverage.called
+            );
+            totalLines += data.coverage.total;
+            calledLines += data.coverage.called;
+          } else {
+            row.style.display = "none";
+          }
+        }
+        summaryText.innerText = `${calledLines} / ${totalLines}`;
+      }
+    </script>
+    <script type="text/javascript" src="./example_data.js"></script>
+    <script>
+      main();
+    </script>
+  </body>
+</html>
