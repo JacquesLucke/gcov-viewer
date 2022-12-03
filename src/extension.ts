@@ -340,9 +340,33 @@ interface FunctionCoverage {
   total: number;
 }
 
-function createFunctionCoverages(fileData: GcovFileData) {
-  const dataByLine = groupData(fileData.lines, (x) => x.line_number);
+interface FileCoverage {
+  called: number;
+  total: number;
+}
 
+function analyseFileCoverage(
+  dataByLine: Map<number, GcovLineData[]>
+): FileCoverage {
+  const total = dataByLine.size;
+  let called = 0;
+
+  for (const lineDataArray of dataByLine.values()) {
+    for (const lineData of lineDataArray) {
+      if (lineData.count > 0) {
+        called++;
+        break;
+      }
+    }
+  }
+
+  return { called, total };
+}
+
+function analyseFunctionCoverages(
+  fileData: GcovFileData,
+  dataByLine: Map<number, GcovLineData[]>
+) {
   const functionEndByStart = new Map<number, number>();
   for (const functionData of fileData.functions) {
     functionEndByStart.set(functionData.start_line, functionData.end_line);
@@ -443,7 +467,7 @@ function createDecorationsForFile(
   const decorations = new LineDecorationsGroup();
 
   const dataByLine = groupData(fileData.lines, (x) => x.line_number);
-  const coverageByStartLine = createFunctionCoverages(fileData);
+  const coverageByStartLine = analyseFunctionCoverages(fileData, dataByLine);
 
   for (const [lineNumber, lineDataArray] of dataByLine.entries()) {
     const range = createRangeForLine(lineNumber - 1);
@@ -571,18 +595,19 @@ async function COMMAND_dumpProcessedCoverageData() {
       (x) => x.start_line
     );
 
-    const coverages = createFunctionCoverages(fileData);
+    const dataByLine = groupData(fileData.lines, (x) => x.line_number);
+
+    const functionCoverages = analyseFunctionCoverages(fileData, dataByLine);
+    const fileCoverage = analyseFileCoverage(dataByLine);
     const mydata = [];
-    for (const [start, coverage] of coverages.entries()) {
+    for (const [start, coverage] of functionCoverages.entries()) {
       const functions = functionsByStartLine.get(start)!;
       const name = extractCoreFunctionName(functions[0].demangled_name);
       mydata.push({ name, start, coverage });
     }
-    data.push({ path, mydata });
+    data.push({ path, coverage: fileCoverage, mydata });
   }
-  console.log("middle");
   const content = data.map((x) => JSON.stringify(x, null, 2)).join("\n");
-  console.log(content.length);
   const document = await vscode.workspace.openTextDocument({
     content: content,
   });
