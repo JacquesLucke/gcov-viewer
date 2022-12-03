@@ -49,7 +49,7 @@
           calledElem.innerText = `${fileData.coverage.called}`;
           totalElem.innerText = `${fileData.coverage.total}`;
           pathElem.innerText = fileData.path;
-          dataByPath.set(fileData.path, { row, data: fileData });
+          dataByPath.set(fileData.path, { row, fileData });
         }
 
         updateFilter();
@@ -86,16 +86,16 @@
         }
         let totalLines = 0;
         let calledLines = 0;
-        for (const [path, { row, data }] of dataByPath.entries()) {
+        for (const [path, { row, fileData }] of dataByPath.entries()) {
           const isVisible = path.match(re);
           if (isVisible) {
             row.style.display = "table-row";
             row.style.backgroundColor = getColor(
-              data.coverage.total,
-              data.coverage.called
+              fileData.coverage.total,
+              fileData.coverage.called
             );
-            totalLines += data.coverage.total;
-            calledLines += data.coverage.called;
+            totalLines += fileData.coverage.total;
+            calledLines += fileData.coverage.called;
           } else {
             row.style.display = "none";
           }

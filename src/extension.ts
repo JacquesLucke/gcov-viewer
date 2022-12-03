@@ -598,13 +598,13 @@ async function COMMAND_dumpProcessedCoverageData() {
 
     const functionCoverages = analyseFunctionCoverages(fileData, dataByLine);
     const fileCoverage = analyseFileCoverage(dataByLine);
-    const mydata = [];
+    const functionData = [];
     for (const [start, coverage] of functionCoverages.entries()) {
       const functions = functionsByStartLine.get(start)!;
       const name = extractCoreFunctionName(functions[0].demangled_name);
-      mydata.push({ name, start, coverage });
+      functionData.push({ name, start, coverage });
     }
-    data.push({ path, coverage: fileCoverage, mydata });
+    data.push({ path, coverage: fileCoverage, functions: functionData });
   }
   const content = "const analysisData = " + JSON.stringify(data);
   const document = await vscode.workspace.openTextDocument({
