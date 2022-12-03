@@ -1,3 +1,9 @@
+## Unreleased
+
+### Added
+
+- Show function coverage in percent.
+
 ## 0.4.0 - 2020-08-26
 
 ### Fixed
