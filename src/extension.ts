@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as util from "util";
 import * as os from "os";
+import * as tmp from "tmp";
 import {
   GcovLineData,
   isGcovCompatible,
@@ -606,11 +607,20 @@ async function COMMAND_dumpProcessedCoverageData() {
     }
     data.push({ path, coverage: fileCoverage, functions: functionData });
   }
-  const content = "const analysisData = " + JSON.stringify(data);
-  const document = await vscode.workspace.openTextDocument({
-    content: content,
+
+  const template = fs.readFileSync(
+    "/home/jacques/Documents/gcov-viewer/src/overview_template.html",
+    "utf8"
+  );
+  const coverageDump = template.replace(
+    "[{ dummy: 42 }]",
+    JSON.stringify(data)
+  );
+
+  tmp.file({ postfix: ".html" }, (err, path) => {
+    fs.writeFileSync(path, coverageDump);
+    vscode.env.openExternal(vscode.Uri.file(path));
   });
-  vscode.window.showTextDocument(document);
 }
 
 async function COMMAND_viewFunctionsByCallCount() {
