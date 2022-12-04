@@ -398,7 +398,7 @@ function createCalledLineDecoration(
   if (isFunctionStart) {
     const coveratePercentage =
       (functionCoverage.calledLines / functionCoverage.totalLines) * 100;
-    text += `[${Number(coveratePercentage).toFixed(1)}%]`;
+    text += `   [${Number(coveratePercentage).toFixed(1)}%]`;
   }
   const decoration: vscode.DecorationOptions = {
     range: range,
