@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as util from "util";
 import * as os from "os";
+import * as tmp from "tmp";
+import * as fs_path from "path";
 import {
   GcovLineData,
   isGcovCompatible,
@@ -10,9 +12,15 @@ import {
 } from "./gcovInterface";
 import { findAllFilesRecursively } from "./fsScanning";
 import { splitArrayInChunks, shuffleArray } from "./arrayUtils";
-import { CoverageCache } from "./coverageCache";
+import {
+  CoverageCache,
+  FileCoverage,
+  LineCoverage,
+  FunctionCoverage,
+} from "./coverageCache";
 
 let isShowingDecorations: boolean = false;
+let coverageStatusBarItem: vscode.StatusBarItem;
 
 export function activate(context: vscode.ExtensionContext) {
   const commands: [string, any][] = [
@@ -27,6 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
       COMMAND_dumpPathsWithCoverageData,
     ],
     ["gcov-viewer.viewFunctionsByCallCount", COMMAND_viewFunctionsByCallCount],
+    ["gcov-viewer.generateSummaryHTML", COMMAND_generateSummaryHTML],
   ];
 
   for (const item of commands) {
@@ -34,6 +43,12 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand(item[0], item[1])
     );
   }
+
+  coverageStatusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Right,
+    100
+  );
+  context.subscriptions.push(coverageStatusBarItem);
 
   vscode.window.onDidChangeVisibleTextEditors(async (editors) => {
     if (isShowingDecorations) {
@@ -45,6 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
       await COMMAND_showDecorations();
     }
   });
+  vscode.window.onDidChangeActiveTextEditor(updateStatusBar);
 }
 
 export function deactivate() {}
@@ -213,6 +229,7 @@ async function reloadGcdaFiles() {
 async function COMMAND_reloadGcdaFiles() {
   await reloadGcdaFiles();
   await showDecorations();
+  updateStatusBar();
 }
 
 async function COMMAND_deleteGcdaFiles() {
@@ -258,6 +275,7 @@ async function COMMAND_hideDecorations() {
     editor.setDecorations(missedLinesDecorationType, []);
   }
   isShowingDecorations = false;
+  updateStatusBar();
 }
 
 async function showDecorations() {
@@ -274,9 +292,10 @@ async function COMMAND_showDecorations() {
     await reloadGcdaFiles();
   }
   await showDecorations();
+  updateStatusBar();
 }
 
-function findCachedDataForFile(absolutePath: string): GcovFileData | undefined {
+function findCachedDataForFile(absolutePath: string): FileCoverage | undefined {
   /* Check if there is cached data for the exact path. */
   const dataOfFile = coverageCache.dataByFile.get(absolutePath);
   if (dataOfFile !== undefined) {
@@ -331,42 +350,6 @@ function sumTotalCalls(lines: GcovLineData[]): number {
   return computeSum(lines, (x) => x.count);
 }
 
-interface FunctionCoverage {
-  called: number;
-  total: number;
-}
-
-function createFunctionCoverages(fileData: GcovFileData) {
-  const dataByLine = groupData(fileData.lines, (x) => x.line_number);
-
-  const functionEndByStart = new Map<number, number>();
-  for (const functionData of fileData.functions) {
-    functionEndByStart.set(functionData.start_line, functionData.end_line);
-  }
-
-  const coverageByStartLine = new Map<number, FunctionCoverage>();
-  for (const [startLine, endLine] of functionEndByStart.entries()) {
-    let total = 0;
-    let called = 0;
-    for (let line = startLine; line <= endLine; line++) {
-      const lineDataArray = dataByLine.get(line) || [];
-      if (lineDataArray.length == 0) {
-        continue;
-      }
-      total++;
-      for (const lineData of lineDataArray) {
-        if (lineData.count > 0) {
-          called++;
-          break;
-        }
-      }
-    }
-    coverageByStartLine.set(startLine, { total, called });
-  }
-
-  return coverageByStartLine;
-}
-
 function createRangeForLine(lineIndex: number) {
   return new vscode.Range(
     new vscode.Position(lineIndex, 0),
@@ -401,19 +384,22 @@ function createMissedLineDecoration(range: vscode.Range) {
 
 function createCalledLineDecoration(
   range: vscode.Range,
-  totalCalls: number,
-  lineDataArray: GcovLineData[],
-  coverage: FunctionCoverage | undefined
+  lineCoverage: LineCoverage,
+  functionCoverage: FunctionCoverage | undefined
 ) {
-  const lineDataByFunction = groupData(lineDataArray, (x) => x.function_name);
-  const tooltip = createTooltipForCalledLine(lineDataByFunction);
-  const text =
-    "   " +
-    (coverage
-      ? `${totalCalls.toLocaleString()}x [${Number(
-          (coverage.called / coverage.total) * 100
-        ).toFixed(1)}%]`
-      : `${totalCalls.toLocaleString()}x`);
+  const calls = lineCoverage.executionCount;
+  const isFunctionStart = functionCoverage !== undefined;
+  const rawLineDataByFunction = groupData(
+    lineCoverage.raw,
+    (x) => x.function_name
+  );
+  const tooltip = createTooltipForCalledLine(rawLineDataByFunction);
+  let text = `    ${calls.toLocaleString()}x`;
+  if (isFunctionStart) {
+    const coveratePercentage =
+      (functionCoverage.calledLines / functionCoverage.totalLines) * 100;
+    text += `[${Number(coveratePercentage).toFixed(1)}%]`;
+  }
   const decoration: vscode.DecorationOptions = {
     range: range,
     hoverMessage: tooltip,
@@ -434,23 +420,25 @@ class LineDecorationsGroup {
 }
 
 function createDecorationsForFile(
-  fileData: GcovFileData
+  fileCoverage: FileCoverage
 ): LineDecorationsGroup {
   const decorations = new LineDecorationsGroup();
 
-  const dataByLine = groupData(fileData.lines, (x) => x.line_number);
-  const coverageByStartLine = createFunctionCoverages(fileData);
+  fileCoverage.ensureAnalysed();
 
-  for (const [lineNumber, lineDataArray] of dataByLine.entries()) {
-    const range = createRangeForLine(lineNumber - 1);
-    const totalCalls = sumTotalCalls(lineDataArray);
-    const coverage = coverageByStartLine.get(lineNumber);
+  for (let line = 0; line < fileCoverage.maxLine!; line++) {
+    const lineCoverage = fileCoverage.dataByLine?.get(line);
+    if (lineCoverage === undefined) {
+      continue;
+    }
+    const functionCoverage = fileCoverage.functionsByStart?.get(line);
+    const range = createRangeForLine(line);
 
-    if (totalCalls === 0) {
+    if (lineCoverage.executionCount === 0) {
       decorations.missedLineDecorations.push(createMissedLineDecoration(range));
     } else {
       decorations.calledLineDecorations.push(
-        createCalledLineDecoration(range, totalCalls, lineDataArray, coverage)
+        createCalledLineDecoration(range, lineCoverage, functionCoverage)
       );
     }
   }
@@ -460,14 +448,14 @@ function createDecorationsForFile(
 
 async function decorateEditor(editor: vscode.TextEditor) {
   const path = editor.document.uri.fsPath;
-  const fileData = findCachedDataForFile(path);
-  if (fileData === undefined) {
+  const fileCoverage = findCachedDataForFile(path);
+  if (fileCoverage === undefined) {
     return;
   }
 
   const config = getTextDocumentConfig(editor.document);
 
-  const decorations = createDecorationsForFile(fileData);
+  const decorations = createDecorationsForFile(fileCoverage);
   editor.setDecorations(
     calledLinesDecorationType,
     decorations.calledLineDecorations
@@ -526,6 +514,49 @@ async function COMMAND_dumpPathsWithCoverageData() {
   vscode.window.showTextDocument(document);
 }
 
+async function COMMAND_generateSummaryHTML() {
+  if (!isCoverageDataLoaded()) {
+    await reloadGcdaFiles();
+  }
+
+  const data = [];
+  for (const [path, fileCoverage] of coverageCache.dataByFile.entries()) {
+    fileCoverage.ensureAnalysed();
+    const functionData = [];
+    for (const functionCoverage of fileCoverage.functionsByStart!.values()) {
+      functionData.push({
+        name: functionCoverage.baseName,
+        total: functionCoverage.totalLines,
+        called: functionCoverage.calledLines,
+      });
+    }
+    data.push({
+      path,
+      total: fileCoverage.totalLines,
+      called: fileCoverage.calledLines,
+      functions: functionData,
+    });
+  }
+
+  const template = fs.readFileSync(
+    fs_path.join(
+      fs_path.dirname(__dirname),
+      "html_report",
+      "overview_template.html"
+    ),
+    "utf8"
+  );
+  const coverageDump = template.replace(
+    "// analysisData = [{ dummy: 42 }];",
+    `analysisData = ${JSON.stringify(data)}`
+  );
+
+  tmp.file({ postfix: ".html" }, (err, path) => {
+    fs.writeFileSync(path, coverageDump);
+    vscode.env.openExternal(vscode.Uri.file(path));
+  });
+}
+
 async function COMMAND_viewFunctionsByCallCount() {
   const editor = vscode.window.activeTextEditor;
   if (editor === undefined) {
@@ -536,47 +567,75 @@ async function COMMAND_viewFunctionsByCallCount() {
     await reloadGcdaFiles();
   }
 
-  const functionsDataOfFile = findCachedDataForFile(
-    editor.document.uri.fsPath
-  )?.functions;
-  if (functionsDataOfFile === undefined) {
+  const fileCoverage = findCachedDataForFile(editor.document.uri.fsPath);
+  if (fileCoverage === undefined) {
     return;
   }
-  const dataPerFunction: Map<string, GcovFunctionData[]> = groupData(
-    functionsDataOfFile,
-    (x) => x.demangled_name
+
+  interface FunctionPickItem extends vscode.QuickPickItem {
+    functionCoverage: FunctionCoverage;
+  }
+
+  fileCoverage.ensureAnalysed();
+
+  let items: FunctionPickItem[] = [];
+  for (const functionCoverage of fileCoverage.functionsByStart!.values()) {
+    items.push({
+      label: `${functionCoverage.executionCount.toLocaleString()}x ${
+        functionCoverage.baseName
+      }`,
+      functionCoverage,
+    });
+  }
+  items.sort(
+    (a, b) =>
+      b.functionCoverage.executionCount - a.functionCoverage.executionCount
   );
-  const functionNamesWithCallCount: [string, number][] = Array.from(
-    dataPerFunction.entries()
-  ).map(([functionName, functionDataArray]) => [
-    functionName,
-    computeSum(functionDataArray, (x) => x.execution_count),
-  ]);
-  functionNamesWithCallCount.sort((a, b) => b[1] - a[1]);
 
   const quickPick = vscode.window.createQuickPick();
-  quickPick.items = functionNamesWithCallCount.map(
-    ([functionName, callCount]) => {
-      return {
-        label: `${callCount}x  ${functionName}`,
-        functionName: functionName,
-      };
-    }
-  );
+  quickPick.items = items;
   quickPick.onDidHide(() => quickPick.dispose());
   quickPick.onDidChangeSelection(() => quickPick.hide());
-  quickPick.onDidChangeActive((items: any[]) => {
-    const functionDataArray = dataPerFunction.get(items[0].functionName)!;
-    const startLineIndex = functionDataArray[0].start_line - 1;
-    const endLineIndex = functionDataArray[0].end_line - 1;
+  quickPick.onDidChangeActive((items) => {
+    const functionCoverage = (items[0] as FunctionPickItem).functionCoverage;
+    const startLine = functionCoverage.startLine;
+    const endLine = functionCoverage.endLine;
     editor.selection = new vscode.Selection(
-      new vscode.Position(startLineIndex, 0),
-      new vscode.Position(startLineIndex, 0)
+      new vscode.Position(startLine, 0),
+      new vscode.Position(startLine, 0)
     );
     editor.revealRange(
-      new vscode.Range(startLineIndex, 0, endLineIndex, 0),
+      new vscode.Range(startLine, 0, endLine, 0),
       vscode.TextEditorRevealType.InCenter
     );
   });
   quickPick.show();
+}
+
+function updateStatusBar() {
+  coverageStatusBarItem.hide();
+  if (!isCoverageDataLoaded()) {
+    return;
+  }
+  if (!isShowingDecorations) {
+    return;
+  }
+  const path = vscode.window.activeTextEditor?.document.uri.fsPath;
+  if (path === undefined) {
+    return;
+  }
+  const fileCoverage = findCachedDataForFile(path);
+  if (fileCoverage === undefined) {
+    return;
+  }
+  fileCoverage.ensureAnalysed();
+
+  const percentage =
+    fileCoverage.totalLines! === 0
+      ? 100
+      : (fileCoverage.calledLines! / fileCoverage.totalLines!) * 100;
+  coverageStatusBarItem.text = `Coverage: ${fileCoverage.calledLines!}/${fileCoverage.totalLines!} [${percentage.toFixed(
+    1
+  )}%]`;
+  coverageStatusBarItem.show();
 }

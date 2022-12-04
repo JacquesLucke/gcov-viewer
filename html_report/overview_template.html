@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Coverage Results</title>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      #all {
+        display: flex;
+        flex-flow: column;
+        height: 100%;
+      }
+
+      #header {
+        flex: 0 1 auto;
+      }
+
+      #tableSection {
+        flex: 1 1 auto;
+        overflow: auto;
+      }
+
+      .clusterize-scroll {
+        max-height: none !important;
+      }
+
+      .called,
+      .total {
+        text-align: right;
+        padding-right: 1em;
+      }
+
+      .path {
+        text-align: left;
+      }
+
+      table {
+        border-collapse: collapse;
+      }
+    </style>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.css"
+      integrity="sha512-8KLHxyeJ2I3BzL2ma1RZxwT1cc/U5Rz/uJg+G25tCrQ8sFfPz3MfJdKZegZDPijTxK2A3+b4kAXvzyK/OLLU5A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"
+      integrity="sha512-sCslfbDbPoJepZJxo6S3mdJwYYt0SX+C9G1SYez6/yGuXcPrZXM9tqZQMpujvMZlujVve98JSzimWbYAlQzvFQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+  </head>
+  <body>
+    <div id="all">
+      <header id="header">
+        <input id="filterInput" type="text" oninput="updateTable()" />
+        <select id="sortType" onchange="updateTable()">
+          <option value="alphabetically">Alphabetically</option>
+          <option value="coverage">Coverage</option>
+          <option value="called">Called Lines</option>
+          <option value="total">Total Lines</option>
+        </select>
+        <input type="checkbox" id="sortReverse" onclick="updateTable()">Reverse</input>
+        <p id="summary"></p>
+      </header>
+      <section id="tableSection" class="clusterize-scroll">
+        <table>
+          <colgroup>
+            <col />
+            <col />
+            <col style="width: 100%" />
+          </colgroup>
+          <tbody id="tableContent" class="clusterize-content">
+            <tr class="clusterize-no-data">
+              <td>Loading data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <script>
+      const inputField = document.getElementById("filterInput");
+      const summaryText = document.getElementById("summary");
+      const sortField = document.getElementById("sortType");
+      const sortReverseField = document.getElementById("sortReverse");
+
+      const preparedFileData = [];
+
+      const firstRow = `<thead>
+          <tr>
+            <th>Called</th>
+            <th>Total</th>
+            <th>Path</th>
+          </tr>
+        </thead>`;
+
+      const clusterize = new Clusterize({
+        rows: [],
+        scrollId: "tableSection",
+        contentId: "tableContent",
+      });
+
+      function main() {
+        for (const fileCoverage of analysisData) {
+          if (fileCoverage.total === 0) {
+            continue;
+          }
+          const coverage = fileCoverage.called / fileCoverage.total;
+          preparedFileData.push({
+            data: fileCoverage,
+            rowStr: `
+            <tr style="background-color: ${getColor(coverage)}">
+              <td class="called">${fileCoverage.called}</td>
+              <td class="total">${fileCoverage.total}</td>
+              <td class="path">${fileCoverage.path}</td>
+            </tr>`,
+          });
+        }
+
+        updateTable();
+      }
+
+      function getSortCompareFunction() {
+        const value = sortField.value;
+        if (value === "coverage") {
+          return (a, b) => {
+            const coverageA = a.data.called / a.data.total;
+            const coverageB = b.data.called / b.data.total;
+            if (coverageA == coverageB) {
+              return a.data.total - b.data.total;
+            }
+            return coverageA - coverageB;
+          }
+        }
+        if (value === "called") {
+          return (a, b) => a.data.called - b.data.called;
+        }
+        if (value === "total") {
+          return (a, b) => a.data.total - b.data.total;
+        }
+        return (a, b) => (a.data.path < b.data.path ? -1 : 1);
+      }
+
+      function updateTable() {
+        let re;
+        try {
+          re = new RegExp(inputField.value);
+        } catch (e) {
+          return;
+        }
+        let totalLines = 0;
+        let calledLines = 0;
+
+        const filteredFiles = preparedFileData.filter((x) =>
+          x.data.path.match(re)
+        );
+        filteredFiles.sort(getSortCompareFunction());
+        if (sortReverseField.checked) {
+          filteredFiles.reverse();
+        }
+
+        const newRows = [firstRow];
+        for (const fileData of filteredFiles) {
+          newRows.push(fileData.rowStr);
+          totalLines += fileData.data.total;
+          calledLines += fileData.data.called;
+        }
+        clusterize.update(newRows);
+        summaryText.innerText = `${calledLines} / ${totalLines}`;
+      }
+
+      function mixColors(c1, c2, f) {
+        const f_inv = 1.0 - f;
+        return {
+          r: c1.r * f_inv + c2.r * f,
+          g: c1.g * f_inv + c2.g * f,
+          b: c1.b * f_inv + c2.b * f,
+        };
+      }
+
+      function getColor(coverage) {
+        if (coverage === 1) {
+          return "rgb(100, 255, 100)";
+        }
+        if (coverage === 0) {
+          return "rgb(255, 100, 100)";
+        }
+        const c = mixColors(
+          { r: 255, g: 130, b: 130 },
+          { r: 130, g: 240, b: 130 },
+          Math.pow(coverage, 2)
+        );
+        return `rgb(${c.r}, ${c.g}, ${c.b})`;
+      }
+
+      let analysisData = [
+        {
+          path: "/home/jacques/blender/blender/extern/ceres/internal/ceres/sparse_matrix.cc",
+          total: 1,
+          called: 1,
+          functions: [
+            {
+              name: "ceres::internal::SparseMatrix::~SparseMatrix",
+              total: 1,
+              called: 1,
+            },
+          ],
+        },
+      ];
+
+      // This is replaced by the actual generated data dynamically.
+      // analysisData = [{ dummy: 42 }];
+
+      main();
+    </script>
+  </body>
+</html>

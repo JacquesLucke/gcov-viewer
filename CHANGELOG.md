@@ -3,6 +3,12 @@
 ### Added
 
 - Show function coverage in percent.
+- Show file coverage in status bar.
+- New `Generate Summary as HTML` command.
+
+### Changed
+
+- The `View Functions by Call Count` command now shortens templated function names.
 
 ## 0.4.0 - 2020-08-26
 
