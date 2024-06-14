@@ -80,7 +80,10 @@ export async function loadGcovData(paths: string[]): Promise<GcovData[]> {
       { maxBuffer: 256 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) {
-          console.error(`exec error: ${err}`);
+          vscode.window.showErrorMessage(
+            `Error invoking gcov: ${stderr.toString()}`
+          );
+          console.log(err);
           reject();
           return;
         }
