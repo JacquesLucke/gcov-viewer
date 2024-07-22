@@ -95,7 +95,7 @@
           "gcovViewer.gcovBinary": {
             "type": "string",
             "title": "Gcov Binary",
-            "scope": "machine",
+            "scope": "machine-overridable",
             "description": "Path to the gcov binary",
             "default": "gcov"
           },
