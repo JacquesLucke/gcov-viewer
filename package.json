@@ -118,20 +118,20 @@
     "pretest": "npm run compile && npm run lint"
   },
   "devDependencies": {
-    "@types/glob": "^7.1.1",
-    "@types/mocha": "^7.0.2",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.7",
     "@types/node": "^13.11.0",
-    "@types/tmp": "^0.2.3",
+    "@types/tmp": "^0.2.6",
     "@types/vscode": "^1.64.0",
     "@typescript-eslint/eslint-plugin": "^2.30.0",
     "@typescript-eslint/parser": "^2.30.0",
     "eslint": "^6.8.0",
-    "glob": "^7.1.6",
-    "mocha": "^7.1.2",
+    "glob": "^11.0.0",
+    "mocha": "^10.7.0",
     "typescript": "^4.5.5",
-    "vscode-test": "^1.3.0"
+    "@vscode/test-electron": "^1.6.1"
   },
   "dependencies": {
-    "tmp": "^0.2.1"
+    "tmp": "^0.2.3"
   }
 }
