@@ -1,5 +1,7 @@
 ## Unrelease
 
+## 0.6.0 - 2024-07-22
+
 ### Changed
 
 - The gcov binary can now be overridden per workspace or folder.
