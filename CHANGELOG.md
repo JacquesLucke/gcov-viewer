@@ -1,5 +1,9 @@
 ## Unrelease
 
+### Changed
+
+- The gcov binary can now be overridden per workspace or folder.
+
 ### Fixed
 
 - Slightly improved error reporting when invoking gcov.
