@@ -24,6 +24,7 @@ This vscode extension uses the `gcov` program to parse these additional files an
 ## Limitations
 
 - Only works with version 9 or higher of `gcc`, `g++` and `gcov`. If you have multiple versions of `gcov`, you might have to change the `Gcov Binary` setting.
+- If you still insist on using low version, you can use third party tools [gcov7-json](https://github.com/xiaoyun94/gcov7-json) As `Gcov Binary` to convert gcov format 
 
 ## Screenshots
 
