@@ -65,21 +65,33 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {}
 
-const calledLineColor = "rgba(50, 240, 50, 0.1)";
-const calledLinesDecorationType = vscode.window.createTextEditorDecorationType({
-  isWholeLine: true,
-  backgroundColor: calledLineColor,
-  overviewRulerColor: calledLineColor,
-  rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
-});
 
-const missedLineColor = "rgba(240, 50, 50, 0.1)";
-const missedLinesDecorationType = vscode.window.createTextEditorDecorationType({
-  isWholeLine: true,
-  backgroundColor: missedLineColor,
-  overviewRulerColor: missedLineColor,
-  rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
-});
+let lastCalledLinesDecorationType: vscode.TextEditorDecorationType;
+function getCalledLinesDecorationType()
+{
+  const defaultCalledLineColor = "rgba(50, 240, 50, 0.1)";
+  const calledLineColor = vscode.workspace.getConfiguration("gcovViewer").get("calledLineColor", defaultCalledLineColor);
+  lastCalledLinesDecorationType = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    backgroundColor: calledLineColor,
+    overviewRulerColor: calledLineColor,
+    rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+  });
+  return lastCalledLinesDecorationType;
+}
+
+let lastMissedLinesDecorationType: vscode.TextEditorDecorationType;
+function getMissedLinesDecorationType() {
+  const defaultMissedLineColor = "rgba(240, 50, 50, 0.1)";
+  const missedLineColor = vscode.workspace.getConfiguration("gcovViewer").get("missedLineColor", defaultMissedLineColor);
+  lastMissedLinesDecorationType = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    backgroundColor: missedLineColor,
+    overviewRulerColor: missedLineColor,
+    rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
+  });
+  return lastMissedLinesDecorationType;
+}
 
 function getWorkspaceFolderConfig(workspaceFolder: vscode.WorkspaceFolder) {
   return vscode.workspace.getConfiguration("gcovViewer", workspaceFolder);
@@ -271,8 +283,8 @@ async function COMMAND_toggleDecorations() {
 
 async function COMMAND_hideDecorations() {
   for (const editor of vscode.window.visibleTextEditors) {
-    editor.setDecorations(calledLinesDecorationType, []);
-    editor.setDecorations(missedLinesDecorationType, []);
+    editor.setDecorations(lastCalledLinesDecorationType, []);
+    editor.setDecorations(lastMissedLinesDecorationType, []);
   }
   isShowingDecorations = false;
   updateStatusBar();
@@ -457,16 +469,16 @@ async function decorateEditor(editor: vscode.TextEditor) {
 
   const decorations = createDecorationsForFile(fileCoverage);
   editor.setDecorations(
-    calledLinesDecorationType,
+    getCalledLinesDecorationType(),
     decorations.calledLineDecorations
   );
   if (config.get<boolean>("highlightMissedLines")) {
     editor.setDecorations(
-      missedLinesDecorationType,
+      getMissedLinesDecorationType(),
       decorations.missedLineDecorations
     );
   } else {
-    editor.setDecorations(missedLinesDecorationType, []);
+    editor.setDecorations(getMissedLinesDecorationType(), []);
   }
 }
 

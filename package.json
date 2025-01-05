@@ -105,6 +105,20 @@
             "scope": "resource",
             "description": "Not only mark the called lines but also the lines that have not been executed. This might not work in some header files, because gcov is not providing the data.",
             "default": false
+          },
+          "gcovViewer.calledLineColor": {
+            "type": "string",
+            "title": "Called Line Color",
+            "scope": "resource",
+            "description": "Color of the lines that have been executed.",
+            "default": "rgba(50, 240, 50, 0.1)"
+          },
+          "gcovViewer.missedLineColor": {
+            "type": "string",
+            "title": "Missed Line Color",
+            "scope": "resource",
+            "description": "Color of the lines that have been missed.",
+            "default": "rgba(240, 50, 50, 0.1)"
           }
         }
       }
